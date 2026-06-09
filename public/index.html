@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safety Downloader — Threat Scanner</title>
+<meta name="description" content="Scan URLs and files for hidden threats, malware, and phishing attacks. Free online security scanner.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<style>
+/* ── Reset & Tokens ────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-deep:    #020b12;
+  --bg-panel:   #050e18;
+  --bg-card:    rgba(0,200,255,0.04);
+  --border:     rgba(0,200,255,0.15);
+  --border-hi:  rgba(0,200,255,0.4);
+  --cyan:       #00c8ff;
+  --cyan-dim:   rgba(0,200,255,0.6);
+  --cyan-glow:  rgba(0,200,255,0.15);
+  --green:      #00ff9d;
+  --amber:      #ffb400;
+  --red:        #ff3b5c;
+  --text:       #c8dce8;
+  --text-dim:   rgba(200,220,232,0.5);
+  --mono:       'JetBrains Mono', monospace;
+  --sans:       'Inter', sans-serif;
+  --radius:     12px;
+  --transition: 0.25s ease;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg-deep);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+
+/* ── Layout ────────────────────────────────────────────────────────── */
+.shell {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  min-height: 100vh;
+}
+
+/* ── Left Panel ────────────────────────────────────────────────────── */
+.left {
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  padding: 48px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  position: relative;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.left::before {
+  content: '';
+  position: absolute;
+  top: -120px; left: -120px;
+  width: 340px; height: 340px;
+  background: radial-gradient(circle, rgba(0,200,255,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ── Brand ─────────────────────────────────────────────────────────── */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-icon {
+  width: 42px; height: 42px;
+  background: var(--cyan-glow);
+  border: 1px solid var(--border-hi);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.brand-name {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--cyan);
+  text-transform: uppercase;
+}
+
+.brand-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  margin-top: 1px;
+}
+
+/* ── Status bar ────────────────────────────────────────────────────── */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(0,255,157,0.05);
+  border: 1px solid rgba(0,255,157,0.2);
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--green);
+  letter-spacing: 0.06em;
+}
+
+.status-dot {
+  width: 7px; height: 7px;
+  background: var(--green);
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,255,157,0.4); }
+  50%       { opacity: 0.6; box-shadow: 0 0 0 5px rgba(0,255,157,0); }
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.card:hover {
+  border-color: var(--border-hi);
+  box-shadow: 0 0 28px var(--cyan-glow);
+}
+
+.card-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-label span { color: var(--cyan); font-size: 14px; }
+
+/* ── Input ─────────────────────────────────────────────────────────── */
+.input-wrap {
+  position: relative;
+  margin-bottom: 14px;
+}
+
+.input-wrap input[type="text"] {
+  width: 100%;
+  padding: 12px 14px 12px 40px;
+  background: rgba(0,200,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.input-wrap input[type="text"]::placeholder {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.input-wrap input[type="text"]:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px var(--cyan-glow);
+}
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  pointer-events: none;
+}
+
+/* ── File input ────────────────────────────────────────────────────── */
+.file-drop {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+  margin-bottom: 14px;
+}
+
+.file-drop:hover, .file-drop.drag-over {
+  border-color: var(--cyan);
+  background: var(--cyan-glow);
+}
+
+.file-drop input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+}
+
+.file-drop-icon { font-size: 28px; margin-bottom: 8px; }
+
+.file-drop-text {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.file-drop-text strong { color: var(--cyan); }
+
+.file-name-display {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--cyan);
+  margin-top: 8px;
+  word-break: break-all;
+}
+
+/* ── Button ────────────────────────────────────────────────────────── */
+.btn {
+  width: 100%;
+  padding: 13px;
+  background: rgba(0,200,255,0.08);
+  border: 1px solid var(--cyan);
+  border-radius: 8px;
+  color: var(--cyan);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--cyan);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s ease;
+}
+
+.btn:hover::before { transform: scaleX(1); }
+.btn:hover { color: var(--bg-deep); box-shadow: 0 0 20px var(--cyan-glow); }
+.btn span { position: relative; z-index: 1; }
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ── Scanning animation ────────────────────────────────────────────── */
+.scanning-bar {
+  display: none;
+  height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.scanning-bar.active { display: block; }
+
+.scanning-bar::after {
+  content: '';
+  display: block;
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  animation: scan-sweep 1.2s ease-in-out infinite;
+}
+
+@keyframes scan-sweep {
+  0%   { transform: translateX(-150%); }
+  100% { transform: translateX(350%); }
+}
+
+/* ── Right panel ───────────────────────────────────────────────────── */
+.right {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: radial-gradient(ellipse at center, #020e1a 0%, var(--bg-deep) 70%);
+}
+
+#globe-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Result overlay ────────────────────────────────────────────────── */
+.result-overlay {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  pointer-events: none;
+  padding: 24px;
+  max-width: 480px;
+}
+
+.result-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  animation: result-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  display: none;
+}
+
+.result-icon.show { display: block; }
+
+@keyframes result-pop {
+  0%   { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.result-title {
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: white;
+  margin-bottom: 8px;
+  min-height: 38px;
+}
+
+.result-score {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 20px;
+  min-height: 20px;
+}
+
+/* ── Findings panel ────────────────────────────────────────────────── */
+.findings {
+  background: rgba(5,14,24,0.92);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  text-align: left;
+  pointer-events: auto;
+  max-height: 220px;
+  overflow-y: auto;
+  display: none;
+  backdrop-filter: blur(12px);
+  max-width: 440px;
+}
+
+.findings.show { display: block; }
+
+.findings-title {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.finding-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.finding-item:last-child { border-bottom: none; }
+
+.finding-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.safe    .finding-dot { background: var(--green); }
+.warning .finding-dot { background: var(--amber); }
+.danger  .finding-dot { background: var(--red); }
+
+/* State colors */
+.state-safe    { --state: var(--green); }
+.state-warning { --state: var(--amber); }
+.state-danger  { --state: var(--red); }
+
+.result-title.safe    { color: var(--green); }
+.result-title.warning { color: var(--amber); }
+.result-title.danger  { color: var(--red); }
+
+/* ── Idle message ──────────────────────────────────────────────────── */
+.idle-msg {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  pointer-events: none;
+}
+
+.idle-msg h2 {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 300;
+  color: rgba(0,200,255,0.5);
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+
+.idle-msg p {
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+
+/* ── Corner decorations ────────────────────────────────────────────── */
+.corner {
+  position: absolute;
+  width: 20px; height: 20px;
+  border-color: var(--border-hi);
+  border-style: solid;
+  z-index: 20;
+}
+
+.corner-tl { top: 20px; left: 20px; border-width: 2px 0 0 2px; }
+.corner-tr { top: 20px; right: 20px; border-width: 2px 2px 0 0; }
+.corner-bl { bottom: 20px; left: 20px; border-width: 0 0 2px 2px; }
+.corner-br { bottom: 20px; right: 20px; border-width: 0 2px 2px 0; }
+
+/* ── Scan ticker ───────────────────────────────────────────────────── */
+.ticker {
+  position: absolute;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.ticker.active { opacity: 1; }
+
+/* ── Hash display ──────────────────────────────────────────────────── */
+.hash-badge {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  word-break: break-all;
+  padding: 6px 0 0;
+  display: none;
+}
+
+.hash-badge.show { display: block; }
+
+/* ── Mobile ────────────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .left { padding: 32px 20px; }
+  .right { min-height: 420px; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── Left Panel ───────────────────────────────────────────────── -->
+  <aside class="left">
+
+    <div class="brand">
+      <div class="brand-icon">🔐</div>
+      <div>
+        <div class="brand-name">Safety Downloader</div>
+        <div class="brand-sub">Threat Intelligence Scanner</div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot"></div>
+      ENGINE ONLINE — READY TO SCAN
+    </div>
+
+    <!-- URL Scanner -->
+    <div class="card">
+      <div class="card-label"><span>🌐</span> URL Scanner</div>
+      <div class="input-wrap">
+        <span class="input-icon">🔗</span>
+        <input type="text" id="urlInput" placeholder="https://example.com" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="scanning-bar" id="urlBar"></div>
+      <button class="btn" id="urlBtn" onclick="scanUrl()"><span id="urlBtnText">⚡ SCAN URL</span></button>
+    </div>
+
+    <!-- File Scanner -->
+    <div class="card">
+      <div class="card-label"><span>📁</span> File Scanner</div>
+      <div class="file-drop" id="fileDrop" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <input type="file" id="fileInput" onchange="handleFileSelect(event)">
+        <div class="file-drop-icon">📂</div>
+        <div class="file-drop-text">
+          <strong>Drop file here</strong> or click to browse<br>
+          Max 20MB — EXE, PDF, ZIP, DOCX…
+        </div>
+        <div class="file-name-display" id="fileNameDisplay"></div>
+      </div>
+      <div class="scanning-bar" id="fileBar"></div>
+      <button class="btn" id="fileBtn" onclick="scanFile()"><span id="fileBtnText">⚡ SCAN FILE</span></button>
+    </div>
+
+    <div style="margin-top: auto; font-size: 11px; color: var(--text-dim); line-height: 1.6;">
+      Analyzes: binary headers · file signatures · heuristic patterns · URL structure · phishing indicators
+    </div>
+
+  </aside>
+
+  <!-- ── Right Panel (Globe) ──────────────────────────────────────── -->
+  <main class="right">
+    <div class="corner corner-tl"></div>
+    <div class="corner corner-tr"></div>
+    <div class="corner corner-bl"></div>
+    <div class="corner corner-br"></div>
+
+    <canvas id="globe-canvas"></canvas>
+
+    <div class="idle-msg" id="idleMsg">
+      <h2>AWAITING TARGET</h2>
+      <p>Paste a URL or drop a file to begin analysis</p>
+    </div>
+
+    <div class="result-overlay" id="resultOverlay" style="display:none;">
+      <div class="result-icon" id="resultIcon"></div>
+      <div class="result-title" id="resultTitle"></div>
+      <div class="result-score" id="resultScore"></div>
+      <div class="findings" id="findingsPanel">
+        <div class="findings-title">⚑ Threat Intelligence</div>
+        <div id="findingsList"></div>
+      </div>
+      <div class="hash-badge" id="hashBadge"></div>
+    </div>
+
+    <div class="ticker" id="ticker">[ SCANNING… ]</div>
+  </main>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   THREE.JS GLOBE
+═══════════════════════════════════════════════════ */
+const canvas = document.getElementById('globe-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
+camera.position.z = 22;
+
+// Globe
+const geo = new THREE.SphereGeometry(8, 96, 96);
+const mat = new THREE.MeshBasicMaterial({ color: 0x001eff, wireframe: true });
+const globe = new THREE.Mesh(geo, mat);
+scene.add(globe);
+
+// Glow shell
+const glowGeo = new THREE.SphereGeometry(8.8, 96, 96);
+const glowMat = new THREE.MeshBasicMaterial({ color: 0x00c8ff, transparent: true, opacity: 0.06 });
+const glow = new THREE.Mesh(glowGeo, glowMat);
+scene.add(glow);
+
+// Particles ring
+const ringPoints = [];
+for (let i = 0; i < 200; i++) {
+  const theta = Math.random() * Math.PI * 2;
+  const r = 10 + Math.random() * 2;
+  ringPoints.push(r * Math.cos(theta), (Math.random() - 0.5) * 2, r * Math.sin(theta));
+}
+const ringGeo = new THREE.BufferGeometry();
+ringGeo.setAttribute('position', new THREE.Float32BufferAttribute(ringPoints, 3));
+const ringMat = new THREE.PointsMaterial({ color: 0x00c8ff, size: 0.08, transparent: true, opacity: 0.4 });
+const ring = new THREE.Points(ringGeo, ringMat);
+scene.add(ring);
+
+function resizeGlobe() {
+  const el = document.querySelector('.right');
+  if (!el) return;
+  const w = el.clientWidth, h = el.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+resizeGlobe();
+window.addEventListener('resize', resizeGlobe);
+
+let targetColor = new THREE.Color(0x001eff);
+let currentColor = new THREE.Color(0x001eff);
+
+function setGlobeState(state) {
+  const colors = { safe: 0x0044ff, medium: 0xffb400, danger: 0xff2244, idle: 0x001eff };
+  targetColor.setHex(colors[state] || colors.idle);
+}
+
+(function animate() {
+  requestAnimationFrame(animate);
+  globe.rotation.y += 0.0012;
+  glow.rotation.y  += 0.0009;
+  ring.rotation.y  -= 0.0006;
+  currentColor.lerp(targetColor, 0.04);
+  mat.color.copy(currentColor);
+  glowMat.color.copy(currentColor);
+  renderer.render(scene, camera);
+})();
+
+/* ═══════════════════════════════════════════════════
+   UI HELPERS
+═══════════════════════════════════════════════════ */
+function setScanning(type, active) {
+  const bar = document.getElementById(type === 'url' ? 'urlBar' : 'fileBar');
+  const btn = document.getElementById(type === 'url' ? 'urlBtn' : 'fileBtn');
+  const txt = document.getElementById(type === 'url' ? 'urlBtnText' : 'fileBtnText');
+  const tick = document.getElementById('ticker');
+
+  bar.classList.toggle('active', active);
+  btn.disabled = active;
+  txt.textContent = active ? '⏳ ANALYZING…' : (type === 'url' ? '⚡ SCAN URL' : '⚡ SCAN FILE');
+  tick.classList.toggle('active', active);
+  if (active) tick.textContent = type === 'url' ? '[ ANALYZING URL… ]' : '[ ANALYZING FILE… ]';
+}
+
+function typeText(el, text, speed = 35) {
+  el.textContent = '';
+  let i = 0;
+  const iv = setInterval(() => {
+    if (i < text.length) { el.textContent += text[i++]; }
+    else clearInterval(iv);
+  }, speed);
+}
+
+function showResult(data) {
+  const overlay   = document.getElementById('resultOverlay');
+  const idleMsg   = document.getElementById('idleMsg');
+  const icon      = document.getElementById('resultIcon');
+  const title     = document.getElementById('resultTitle');
+  const score     = document.getElementById('resultScore');
+  const findings  = document.getElementById('findingsPanel');
+  const list      = document.getElementById('findingsList');
+  const hashBadge = document.getElementById('hashBadge');
+
+  idleMsg.style.display   = 'none';
+  overlay.style.display   = 'block';
+  findings.style.display  = 'block';
+  findings.classList.add('show');
+  icon.classList.add('show');
+
+  const level = data.riskLevel;
+  let stateKey, stateClass, iconChar, titleText;
+
+  if (level === 'SAFE') {
+    stateKey = 'safe'; stateClass = 'safe'; iconChar = '✅'; titleText = 'SYSTEM SECURE';
+  } else if (level === 'SLIGHTLY_RISKY') {
+    stateKey = 'medium'; stateClass = 'warning'; iconChar = '⚠️'; titleText = 'LOW RISK';
+  } else if (level === 'MODERATE') {
+    stateKey = 'medium'; stateClass = 'warning'; iconChar = '⚠️'; titleText = 'MODERATE RISK';
+  } else {
+    stateKey = 'danger'; stateClass = 'danger'; iconChar = '🚨'; titleText = 'THREAT DETECTED';
+  }
+
+  setGlobeState(stateKey);
+  icon.textContent = iconChar;
+  title.className = `result-title ${stateClass}`;
+  findings.className = `findings show ${stateClass}`;
+  typeText(title, titleText);
+  score.textContent = `Risk Score: ${data.riskScore} / 100  ·  ${data.riskLabel}`;
+
+  // Findings
+  list.innerHTML = '';
+  (data.findings || []).forEach(f => {
+    const item = document.createElement('div');
+    item.className = `finding-item ${stateClass}`;
+    item.innerHTML = `<div class="finding-dot"></div><div>${f}</div>`;
+    list.appendChild(item);
+  });
+
+  // Hash badge for file scans
+  if (data.sha256) {
+    hashBadge.textContent = `SHA256: ${data.sha256}`;
+    hashBadge.classList.add('show');
+  } else {
+    hashBadge.classList.remove('show');
+  }
+}
+
+function showError(msg) {
+  const overlay  = document.getElementById('resultOverlay');
+  const idleMsg  = document.getElementById('idleMsg');
+  const icon     = document.getElementById('resultIcon');
+  const title    = document.getElementById('resultTitle');
+  const score    = document.getElementById('resultScore');
+  const findings = document.getElementById('findingsPanel');
+
+  idleMsg.style.display  = 'none';
+  overlay.style.display  = 'block';
+  findings.style.display = 'none';
+  icon.className = 'result-icon show';
+  icon.textContent = '❌';
+  title.className = 'result-title danger';
+  title.textContent = 'SCAN FAILED';
+  score.textContent = msg;
+  setGlobeState('danger');
+}
+
+/* ═══════════════════════════════════════════════════
+   SCAN FUNCTIONS
+═══════════════════════════════════════════════════ */
+async function scanUrl() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) { alert('Please enter a URL to scan.'); return; }
+
+  setScanning('url', true);
+  try {
+    const res  = await fetch('/api/scan?url=' + encodeURIComponent(url));
+    const data = await res.json();
+    showResult(data);
+  } catch (e) {
+    showError('Could not reach scan engine');
+  } finally {
+    setScanning('url', false);
+  }
+}
+
+async function scanFile() {
+  const fileInput = document.getElementById('fileInput');
+  if (!fileInput.files.length) { alert('Please select a file to scan.'); return; }
+
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+
+  setScanning('file', true);
+  try {
+    const res  = await fetch('/api/scan-file', { method: 'POST', body: fd });
+    const data = await res.json();
+    showResult(data);
+  } catch (e) {
+    showError('Could not reach scan engine');
+  } finally {
+    setScanning('file', false);
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   FILE DROP
+═══════════════════════════════════════════════════ */
+function handleFileSelect(e) {
+  const f = e.target.files[0];
+  if (f) document.getElementById('fileNameDisplay').textContent = `📄 ${f.name}`;
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('fileDrop').classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+  document.getElementById('fileDrop').classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('fileDrop').classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) {
+    const dt = new DataTransfer();
+    dt.items.add(f);
+    document.getElementById('fileInput').files = dt.files;
+    document.getElementById('fileNameDisplay').textContent = `📄 ${f.name}`;
+  }
+}
+
+/* ── Enter key on URL input ── */
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') scanUrl();
+});
+</script>
+</body>
+</html>
