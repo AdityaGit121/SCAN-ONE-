@@ -98,17 +98,30 @@ You can configure your Gemini API key in two ways:
 
 ---
 
-## Installation
+## 1-Click Windows & Cross-System Execution
 
-### Prerequisites
-- Node.js 18+ or 22+
-- npm 9+
+- **First-Time Setup**: Double-click `setup.bat` (or run `./setup.bat`). It automatically checks Node.js/npm, creates `.env`, installs packages, and executes the 29-test verification suite.
+- **Run Application**: Double-click `run.bat` (or run `./run.bat`). It starts the security server and automatically opens `http://localhost:3000` in your default browser.
 
-```bash
-git clone https://github.com/AdityaGit121/SafetyDownloder.git
-cd SafetyDownloder
-npm install
-```
+---
+
+## Deploy to Cloud
+
+### Deploy to Render
+This repository includes a pre-configured `render.yaml` blueprint:
+1. Push your repository to GitHub / GitLab.
+2. In Render Dashboard, click **New +** > **Blueprint**.
+3. Select this repository. Render will automatically detect `render.yaml`, provision the Web Service, and deploy with zero manual setup.
+
+### Deploy to Vercel
+This repository includes a pre-configured `vercel.json`:
+1. Import the repository in your [Vercel Dashboard](https://vercel.com).
+2. Set any optional environment variables (`GEMINI_API_KEY`, etc.).
+3. Click **Deploy**. Vercel will automatically build and route requests to the serverless runtime.
+
+---
+
+## Installation (Manual)
 
 ---
 

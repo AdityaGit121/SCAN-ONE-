@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: safety-downloader
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.8-flash
+      - key: MAX_FILE_SIZE
+        value: "20971520"
+      - key: SANDBOX_ENABLED
+        value: "true"
+      - key: ONLINE_SCAN_ENABLED
+        value: "true"
+      - key: OFFLINE_SCAN_ENABLED
+        value: "true"

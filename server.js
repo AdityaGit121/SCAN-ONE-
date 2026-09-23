@@ -495,6 +495,12 @@ app.get('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Safety Downloader] Security Platform running on http://0.0.0.0:${PORT}`);
-});
+
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Safety Downloader] Security Platform running on http://0.0.0.0:${PORT}`);
+  });
+}
+
+module.exports = app;
+
