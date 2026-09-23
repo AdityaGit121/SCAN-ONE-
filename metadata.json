@@ -1,0 +1,7 @@
+{
+  "name": "Safety Downloader — Threat Scanner",
+  "description": "AI-powered phishing, malicious-media, polyglot, and threat-analysis platform with Online AI and Offline Local scanning modes.",
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

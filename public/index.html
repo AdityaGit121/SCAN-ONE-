@@ -3,836 +3,2611 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Safety Downloader — Threat Scanner</title>
-<meta name="description" content="Scan URLs and files for hidden threats, malware, and phishing attacks. Free online security scanner.">
+<title>Safety Downloader — Dual-Mode AI & Offline Security Platform</title>
+<meta name="description" content="AI-powered phishing, malicious-media, polyglot, and threat-analysis platform with Online AI and Offline Local scanning modes.">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
 <style>
-/* ── Reset & Tokens ────────────────────────────────────────────────── */
+/* ── Reset & Core Tokens ───────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg-deep:    #020b12;
-  --bg-panel:   #050e18;
-  --bg-card:    rgba(0,200,255,0.04);
-  --border:     rgba(0,200,255,0.15);
-  --border-hi:  rgba(0,200,255,0.4);
-  --cyan:       #00c8ff;
-  --cyan-dim:   rgba(0,200,255,0.6);
-  --cyan-glow:  rgba(0,200,255,0.15);
-  --green:      #00ff9d;
-  --amber:      #ffb400;
-  --red:        #ff3b5c;
-  --text:       #c8dce8;
-  --text-dim:   rgba(200,220,232,0.5);
-  --mono:       'JetBrains Mono', monospace;
-  --sans:       'Inter', sans-serif;
-  --radius:     12px;
-  --transition: 0.25s ease;
+  --bg-space:     #02080e;
+  --bg-sidebar:   #040e17;
+  --bg-panel:     #071624;
+  --bg-card:      rgba(7, 24, 40, 0.7);
+  --bg-card-hover:rgba(12, 34, 56, 0.85);
+  
+  --border:       rgba(0, 200, 255, 0.15);
+  --border-subtle:rgba(255, 255, 255, 0.08);
+  --border-hi:    rgba(0, 200, 255, 0.45);
+  
+  /* Mode accents: Online = Cobalt/Cyan, Offline = Emerald */
+  --online-cyan:  #00c8ff;
+  --online-glow:  rgba(0, 200, 255, 0.2);
+  --offline-green:#00ff9d;
+  --offline-glow: rgba(0, 255, 157, 0.2);
+
+  --accent:       var(--online-cyan);
+  --accent-glow:  var(--online-glow);
+
+  --danger:       #ff3b5c;
+  --danger-glow:  rgba(255, 59, 92, 0.25);
+  --warning:      #ffb400;
+  --warning-glow: rgba(255, 180, 0, 0.2);
+  --safe:         #00ff9d;
+  --purple:       #b455ff;
+  
+  --text:         #d4e5f0;
+  --text-dim:     #7c98ab;
+  --text-muted:   #49657b;
+  
+  --mono:         'JetBrains Mono', monospace;
+  --sans:         'Inter', sans-serif;
+  --radius:       10px;
+  --radius-sm:    6px;
+  --transition:   0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-html { scroll-behavior: smooth; }
+body.mode-offline {
+  --accent:       var(--offline-green);
+  --accent-glow:  var(--offline-glow);
+}
 
-body {
-  background: var(--bg-deep);
+html, body {
+  height: 100%;
+  background: var(--bg-space);
   color: var(--text);
   font-family: var(--sans);
-  min-height: 100vh;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
-/* ── Scrollbar ─────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: var(--bg-deep); }
-::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+/* ── Scrollbars ────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+::-webkit-scrollbar-thumb { background: rgba(0, 200, 255, 0.25); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-/* ── Layout ────────────────────────────────────────────────────────── */
-.shell {
+/* ── App Layout ────────────────────────────────────────────────────── */
+.app-container {
   display: grid;
-  grid-template-columns: 420px 1fr;
-  min-height: 100vh;
+  grid-template-columns: 260px 1fr;
+  height: 100vh;
+  position: relative;
 }
 
-/* ── Left Panel ────────────────────────────────────────────────────── */
-.left {
-  background: var(--bg-panel);
+/* ── Sidebar ───────────────────────────────────────────────────────── */
+.sidebar {
+  background: var(--bg-sidebar);
   border-right: 1px solid var(--border);
-  padding: 48px 36px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  position: relative;
-  overflow: hidden;
-  z-index: 10;
+  justify-content: space-between;
+  padding: 24px 16px;
+  z-index: 30;
+  user-select: none;
 }
 
-.left::before {
-  content: '';
-  position: absolute;
-  top: -120px; left: -120px;
-  width: 340px; height: 340px;
-  background: radial-gradient(circle, rgba(0,200,255,0.06) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-/* ── Brand ─────────────────────────────────────────────────────────── */
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.brand-icon {
+  width: 40px; height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-glow);
+  border: 1px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: var(--accent);
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+
+.brand-info h1 {
+  font-size: 14px;
+  font-family: var(--mono);
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.brand-info span {
+  font-size: 11px;
+  color: var(--accent);
+  font-family: var(--mono);
+}
+
+/* Mode Switcher in Sidebar */
+.mode-toggle-card {
+  margin: 20px 0 16px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+}
+
+.mode-toggle-header {
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.mode-toggle-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  background: rgba(0,0,0,0.3);
+  padding: 3px;
+  border-radius: var(--radius-sm);
+}
+
+.mode-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 8px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.mode-btn.active {
+  background: var(--accent-glow);
+  color: #fff;
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* Sidebar Nav */
+.nav-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  margin-top: 10px;
+  overflow-y: auto;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.nav-item:hover {
+  background: rgba(255,255,255,0.03);
+  color: var(--text);
+}
+
+.nav-item.active {
+  background: var(--accent-glow);
+  color: #fff;
+  border-color: var(--border-hi);
+  font-weight: 600;
+}
+
+.nav-icon {
+  font-size: 14px;
+  width: 16px;
+  text-align: center;
+}
+
+.sidebar-footer {
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--safe);
+  font-size: 11px;
+}
+
+.dot-pulse {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--safe);
+  box-shadow: 0 0 8px var(--safe);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.3); }
+}
+
+/* ── Main View Area ────────────────────────────────────────────────── */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow-y: auto;
+  position: relative;
+  background: radial-gradient(circle at 80% 20%, rgba(0, 200, 255, 0.05) 0%, transparent 60%);
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(4, 14, 23, 0.85);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.page-title {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.brand-icon {
-  width: 42px; height: 42px;
-  background: var(--cyan-glow);
-  border: 1px solid var(--border-hi);
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px;
-  flex-shrink: 0;
+.page-title h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.01em;
 }
 
-.brand-name {
+.mode-indicator-pill {
   font-family: var(--mono);
-  font-size: 15px;
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--accent);
+  background: var(--accent-glow);
+  color: #fff;
   font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--cyan);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.brand-sub {
-  font-size: 11px;
-  color: var(--text-dim);
-  letter-spacing: 0.05em;
-  margin-top: 1px;
-}
-
-/* ── Status bar ────────────────────────────────────────────────────── */
-.status-bar {
+.top-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  background: rgba(0,255,157,0.05);
-  border: 1px solid rgba(0,255,157,0.2);
-  border-radius: 8px;
+  gap: 12px;
+}
+
+.btn-secondary {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-subtle);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
   font-family: var(--mono);
   font-size: 11px;
-  color: var(--green);
-  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.status-dot {
-  width: 7px; height: 7px;
-  background: var(--green);
-  border-radius: 50%;
-  animation: pulse 2s ease-in-out infinite;
-  flex-shrink: 0;
+.btn-secondary:hover {
+  border-color: var(--border-hi);
+  background: rgba(255,255,255,0.08);
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,255,157,0.4); }
-  50%       { opacity: 0.6; box-shadow: 0 0 0 5px rgba(0,255,157,0); }
+.btn-pdf {
+  background: linear-gradient(135deg, #d92546 0%, #a8132e 100%);
+  border: 1px solid #ff4d6d;
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 0 16px rgba(217, 37, 70, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-/* ── Cards ─────────────────────────────────────────────────────────── */
-.card {
+.btn-pdf:hover {
+  filter: brightness(1.2);
+  box-shadow: 0 0 24px rgba(255, 77, 109, 0.6);
+}
+
+.btn-primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #02080e;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 0 16px var(--accent-glow);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 0 24px var(--accent);
+}
+
+/* ── Content Panes ─────────────────────────────────────────────────── */
+.tab-pane {
+  display: none;
+  padding: 32px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.tab-pane.active {
+  display: block;
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Dashboard Grid ────────────────────────────────────────────────── */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 460px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+/* Cards */
+.cyber-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 24px;
+  position: relative;
+  backdrop-filter: blur(10px);
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 
-.card:hover {
+.cyber-card:hover {
   border-color: var(--border-hi);
-  box-shadow: 0 0 28px var(--cyan-glow);
 }
 
-.card-label {
+.card-title {
   font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
   text-transform: uppercase;
+  letter-spacing: 0.12em;
   margin-bottom: 16px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+}
+
+/* ── Scanner Inputs ────────────────────────────────────────────────── */
+.input-tabs {
+  display: flex;
   gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 8px;
 }
 
-.card-label span { color: var(--cyan); font-size: 14px; }
+.input-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
 
-/* ── Input ─────────────────────────────────────────────────────────── */
-.input-wrap {
+.input-tab-btn.active {
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  border: 1px solid var(--border-subtle);
+}
+
+.scanner-box {
+  margin-bottom: 16px;
+}
+
+.url-input-wrap {
   position: relative;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
-.input-wrap input[type="text"] {
+.url-input-wrap input {
   width: 100%;
-  padding: 12px 14px 12px 40px;
-  background: rgba(0,200,255,0.04);
+  padding: 14px 16px 14px 44px;
+  background: rgba(0, 0, 0, 0.4);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
+  border-radius: var(--radius-sm);
+  color: #fff;
   font-family: var(--mono);
   font-size: 13px;
   outline: none;
-  transition: border-color var(--transition), box-shadow var(--transition);
+  transition: var(--transition);
 }
 
-.input-wrap input[type="text"]::placeholder {
-  color: var(--text-dim);
-  font-size: 12px;
+.url-input-wrap input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 16px var(--accent-glow);
 }
 
-.input-wrap input[type="text"]:focus {
-  border-color: var(--cyan);
-  box-shadow: 0 0 0 3px var(--cyan-glow);
-}
-
-.input-icon {
+.url-icon {
   position: absolute;
-  left: 12px;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
+  color: var(--accent);
   font-size: 16px;
-  pointer-events: none;
 }
 
-/* ── File input ────────────────────────────────────────────────────── */
-.file-drop {
-  border: 1px dashed var(--border);
-  border-radius: 8px;
-  padding: 20px;
+/* File Drop Zone */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 36px 20px;
   text-align: center;
   cursor: pointer;
   transition: var(--transition);
-  position: relative;
-  margin-bottom: 14px;
+  background: rgba(0,0,0,0.2);
 }
 
-.file-drop:hover, .file-drop.drag-over {
-  border-color: var(--cyan);
-  background: var(--cyan-glow);
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: var(--accent);
+  background: var(--accent-glow);
 }
 
-.file-drop input[type="file"] {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-  width: 100%;
+.drop-icon {
+  font-size: 32px;
+  color: var(--accent);
+  margin-bottom: 12px;
 }
 
-.file-drop-icon { font-size: 28px; margin-bottom: 8px; }
-
-.file-drop-text {
-  font-size: 12px;
-  color: var(--text-dim);
-  line-height: 1.5;
-}
-
-.file-drop-text strong { color: var(--cyan); }
-
-.file-name-display {
+.drop-title {
   font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.drop-sub {
   font-size: 11px;
-  color: var(--cyan);
-  margin-top: 8px;
-  word-break: break-all;
+  color: var(--text-dim);
 }
 
-/* ── Button ────────────────────────────────────────────────────────── */
-.btn {
-  width: 100%;
-  padding: 13px;
-  background: rgba(0,200,255,0.08);
-  border: 1px solid var(--cyan);
-  border-radius: 8px;
-  color: var(--cyan);
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: var(--transition);
-  position: relative;
-  overflow: hidden;
-}
-
-.btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--cyan);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.2s ease;
-}
-
-.btn:hover::before { transform: scaleX(1); }
-.btn:hover { color: var(--bg-deep); box-shadow: 0 0 20px var(--cyan-glow); }
-.btn span { position: relative; z-index: 1; }
-
-.btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-/* ── Scanning animation ────────────────────────────────────────────── */
-.scanning-bar {
-  display: none;
-  height: 2px;
-  background: var(--border);
-  border-radius: 1px;
-  overflow: hidden;
-  margin-top: 10px;
-}
-
-.scanning-bar.active { display: block; }
-
-.scanning-bar::after {
-  content: '';
-  display: block;
-  height: 100%;
-  width: 40%;
-  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
-  animation: scan-sweep 1.2s ease-in-out infinite;
-}
-
-@keyframes scan-sweep {
-  0%   { transform: translateX(-150%); }
-  100% { transform: translateX(350%); }
-}
-
-/* ── Right panel ───────────────────────────────────────────────────── */
-.right {
+/* ── Interactive 3D Globe Visualizer ───────────────────────────────── */
+.visualizer-wrapper {
+  background: radial-gradient(circle at center, rgba(7, 26, 44, 0.9) 0%, rgba(2, 8, 14, 0.95) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-height: 480px;
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
-  background: radial-gradient(ellipse at center, #020e1a 0%, var(--bg-deep) 70%);
+  box-shadow: inset 0 0 40px rgba(0, 200, 255, 0.05);
+  transition: border-color 0.4s ease, box-shadow 0.4s ease;
 }
 
-#globe-canvas {
+.visualizer-wrapper.scanning {
+  border-color: rgba(0, 200, 255, 0.45);
+  box-shadow: inset 0 0 60px rgba(0, 200, 255, 0.12), 0 0 25px rgba(0, 200, 255, 0.15);
+}
+
+.visualizer-wrapper.verdict-safe {
+  border-color: rgba(0, 255, 157, 0.4);
+  box-shadow: inset 0 0 60px rgba(0, 255, 157, 0.1), 0 0 25px rgba(0, 255, 157, 0.15);
+}
+
+.visualizer-wrapper.verdict-suspicious, .visualizer-wrapper.verdict-medium {
+  border-color: rgba(255, 180, 0, 0.4);
+  box-shadow: inset 0 0 60px rgba(255, 180, 0, 0.1), 0 0 25px rgba(255, 180, 0, 0.15);
+}
+
+.visualizer-wrapper.verdict-unsafe, .visualizer-wrapper.verdict-malicious, .visualizer-wrapper.verdict-high_risk {
+  border-color: rgba(255, 59, 92, 0.45);
+  box-shadow: inset 0 0 60px rgba(255, 59, 92, 0.12), 0 0 25px rgba(255, 59, 92, 0.2);
+}
+
+#globeCanvas {
+  width: 100% !important;
+  height: 100% !important;
   position: absolute;
-  inset: 0;
-  width: 100%;
+  top: 0; left: 0;
+  z-index: 1;
+  transition: filter 0.5s ease, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#globeCanvas.scanning {
+  filter: drop-shadow(0 0 20px rgba(0, 200, 255, 0.5)) saturate(1.4);
+}
+
+#globeCanvas.verdict-safe {
+  filter: drop-shadow(0 0 24px rgba(0, 255, 157, 0.5)) saturate(1.3);
+}
+
+#globeCanvas.verdict-suspicious {
+  filter: drop-shadow(0 0 24px rgba(255, 180, 0, 0.5)) saturate(1.3);
+}
+
+#globeCanvas.verdict-unsafe {
+  filter: drop-shadow(0 0 26px rgba(255, 59, 92, 0.6)) saturate(1.5);
+}
+
+.visualizer-overlay {
+  position: relative;
+  z-index: 2;
+  padding: 24px;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   height: 100%;
 }
 
-/* ── Result overlay ────────────────────────────────────────────────── */
-.result-overlay {
-  position: relative;
-  z-index: 10;
+/* ── Futuristic HUD Verdict & Scanner Elements ── */
+.globe-hud-container {
   text-align: center;
-  pointer-events: none;
-  padding: 24px;
-  max-width: 480px;
-}
-
-.result-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-  animation: result-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-  display: none;
-}
-
-.result-icon.show { display: block; }
-
-@keyframes result-pop {
-  0%   { transform: scale(0.5); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-.result-title {
   font-family: var(--mono);
-  font-size: 28px;
+  margin: auto;
+  pointer-events: auto;
+  max-width: 440px;
+  width: 100%;
+  animation: hudFadeIn 0.5s ease-out forwards;
+}
+
+.globe-scan-spinner {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 14px auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.globe-scan-spinner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-bottom-color: var(--accent);
+  animation: radarSpin 1.2s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+}
+
+.globe-scan-spinner::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  border: 2px dashed rgba(0, 255, 157, 0.7);
+  animation: radarSpinReverse 2s linear infinite;
+}
+
+.globe-hud-badge {
+  background: rgba(4, 14, 24, 0.88);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 24px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  position: relative;
+  overflow: hidden;
+  animation: hudScaleBounce 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.globe-hud-badge::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: hudScanline 2.5s linear infinite;
+}
+
+.globe-hud-badge.verdict-safe {
+  border-color: var(--safe);
+  box-shadow: 0 0 25px rgba(0, 255, 157, 0.25), 0 10px 30px rgba(0,0,0,0.6);
+}
+.globe-hud-badge.verdict-suspicious, .globe-hud-badge.verdict-medium {
+  border-color: var(--warning);
+  box-shadow: 0 0 25px rgba(255, 180, 0, 0.25), 0 10px 30px rgba(0,0,0,0.6);
+}
+.globe-hud-badge.verdict-unsafe, .globe-hud-badge.verdict-malicious, .globe-hud-badge.verdict-high_risk {
+  border-color: var(--danger);
+  box-shadow: 0 0 30px rgba(255, 59, 92, 0.35), 0 10px 30px rgba(0,0,0,0.6);
+}
+
+/* Unique Kinetic Font Animation */
+.kinetic-verdict-title {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 6px 0;
+  display: inline-block;
+  background-size: 200% auto;
+  animation: kineticGlowShift 2s ease infinite;
+}
+
+.kinetic-verdict-title.SAFE {
+  color: #00ff9d;
+  text-shadow: 0 0 12px rgba(0, 255, 157, 0.7), 0 0 24px rgba(0, 255, 157, 0.4);
+}
+.kinetic-verdict-title.LOW_RISK, .kinetic-verdict-title.SUSPICIOUS {
+  color: #ffb400;
+  text-shadow: 0 0 12px rgba(255, 180, 0, 0.7), 0 0 24px rgba(255, 180, 0, 0.4);
+}
+.kinetic-verdict-title.HIGH_RISK, .kinetic-verdict-title.MALICIOUS {
+  color: #ff3b5c;
+  text-shadow: 0 0 12px rgba(255, 59, 92, 0.8), 0 0 26px rgba(255, 59, 92, 0.5);
+  animation: kineticGlitch 1.5s infinite;
+}
+
+.kinetic-score-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--border-subtle);
+  color: #fff;
+  margin-top: 8px;
+}
+
+.kinetic-decrypting {
+  display: inline-block;
+  font-family: var(--mono);
+  letter-spacing: 0.12em;
+  font-weight: 800;
+  color: var(--accent);
+  text-shadow: 0 0 10px var(--accent-glow);
+}
+
+@keyframes radarSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes radarSpinReverse {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes hudFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hudScaleBounce {
+  0% { opacity: 0; transform: scale(0.85); }
+  70% { transform: scale(1.03); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes hudScanline {
+  0% { left: -100%; }
+  100% { left: 200%; }
+}
+
+@keyframes kineticGlowShift {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.25); }
+}
+
+@keyframes kineticGlitch {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-1px, 1px); }
+  40% { transform: translate(1px, -1px); }
+  60% { transform: translate(-1px, -1px); }
+  80% { transform: translate(1px, 1px); }
+  100% { transform: translate(0, 0); }
+}
+
+.visualizer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.target-badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  background: rgba(0,0,0,0.6);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  max-width: 380px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Real-Time Scan Pipeline Progress Display */
+.pipeline-card {
+  margin-top: 18px;
+  background: rgba(2, 8, 14, 0.92);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  pointer-events: auto;
+}
+
+.pipeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.pipeline-title {
+  font-family: var(--mono);
+  font-size: 11px;
   font-weight: 700;
+  color: var(--accent);
   letter-spacing: 0.08em;
-  color: white;
-  margin-bottom: 8px;
-  min-height: 38px;
 }
 
-.result-score {
+.pipeline-progress-bar-wrap {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.pipeline-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent) 0%, #00ff9d 100%);
+  border-radius: 3px;
+  transition: width 0.25s ease;
+}
+
+.pipeline-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pipeline-step {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 11px;
   color: var(--text-dim);
-  margin-bottom: 20px;
-  min-height: 20px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid transparent;
+  transition: var(--transition);
 }
 
-/* ── Findings panel ────────────────────────────────────────────────── */
-.findings {
-  background: rgba(5,14,24,0.92);
+.pipeline-step.active {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  color: #fff;
+}
+
+.pipeline-step.done {
+  border-color: rgba(0, 255, 157, 0.3);
+  background: rgba(0, 255, 157, 0.05);
+  color: #a4f5cb;
+}
+
+.step-main-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.step-detail-row {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.step-status {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.05);
+  font-weight: 700;
+}
+
+.step-status.done {
+  color: var(--safe);
+  background: rgba(0,255,157,0.15);
+}
+
+.step-status.active {
+  color: var(--accent);
+  background: var(--accent-glow);
+  animation: pulse 1.5s infinite;
+}
+
+/* ── Result Cards & Verdict ────────────────────────────────────────── */
+.verdict-banner {
+  padding: 24px;
+  border-radius: var(--radius);
+  border: 1px solid;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  backdrop-filter: blur(12px);
+}
+
+.verdict-banner.MALICIOUS {
+  background: rgba(255, 59, 92, 0.12);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.verdict-banner.HIGH_RISK {
+  background: rgba(255, 59, 92, 0.08);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.verdict-banner.SUSPICIOUS {
+  background: rgba(255, 180, 0, 0.1);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.verdict-banner.LOW_RISK, .verdict-banner.SAFE {
+  background: rgba(0, 255, 157, 0.08);
+  border-color: var(--safe);
+  color: var(--safe);
+}
+
+.verdict-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.verdict-icon {
+  font-size: 36px;
+}
+
+.verdict-title {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.verdict-sub {
+  font-size: 12px;
+  color: var(--text);
+  margin-top: 4px;
+}
+
+.score-badge {
+  text-align: right;
+  font-family: var(--mono);
+}
+
+.score-num {
+  font-size: 32px;
+  font-weight: 800;
+}
+
+.score-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+/* Results Action Bar (Download PDF Button) */
+.results-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: rgba(0,0,0,0.5);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px 20px;
-  text-align: left;
-  pointer-events: auto;
-  max-height: 220px;
-  overflow-y: auto;
-  display: none;
-  backdrop-filter: blur(12px);
-  max-width: 440px;
+  margin-bottom: 24px;
 }
 
-.findings.show { display: block; }
-
-.findings-title {
+.action-bar-info {
   font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 12px;
   color: var(--text-dim);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  margin-bottom: 12px;
+}
+
+/* Multilayer Tags */
+.layers-ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.layer-chip {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border);
+  color: var(--text);
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.finding-item {
+.layer-chip.active {
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Results Detail Grid */
+.results-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.detail-item {
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border);
+}
+
+.detail-item.danger { border-left: 3px solid var(--danger); color: #ff94a6; }
+.detail-item.warning { border-left: 3px solid var(--warning); color: #ffd677; }
+.detail-item.safe { border-left: 3px solid var(--safe); color: #8affc6; }
+
+/* Structural Tree & Polyglot offsets */
+.tree-node {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 6px 10px;
+  background: rgba(0,0,0,0.25);
+  border-left: 2px solid var(--accent);
+  margin-bottom: 6px;
+  border-radius: 0 4px 4px 0;
+}
+
+.offset-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.offset-row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+}
+
+.offset-val {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* AI Explanation Box */
+.ai-box {
+  background: rgba(180, 85, 255, 0.08);
+  border: 1px solid rgba(180, 85, 255, 0.3);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.ai-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
   font-size: 12px;
-  color: var(--text);
+  font-weight: 700;
+  color: #df9eff;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.ai-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #eed6ff;
+}
+
+/* ── API Config & Settings Form ────────────────────────────────────── */
+.settings-form {
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.form-group input, .form-group select {
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 13px;
+  outline: none;
+}
+
+.form-group input:focus, .form-group select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.form-help {
+  font-size: 11px;
+  color: var(--text-muted);
   line-height: 1.4;
 }
 
-.finding-item:last-child { border-bottom: none; }
-
-.finding-dot {
-  width: 5px; height: 5px;
-  border-radius: 50%;
-  margin-top: 5px;
-  flex-shrink: 0;
+.security-notice-box {
+  background: rgba(255, 180, 0, 0.08);
+  border: 1px solid rgba(255, 180, 0, 0.25);
+  padding: 16px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: #ffe699;
+  line-height: 1.5;
 }
 
-.safe    .finding-dot { background: var(--green); }
-.warning .finding-dot { background: var(--amber); }
-.danger  .finding-dot { background: var(--red); }
-
-/* State colors */
-.state-safe    { --state: var(--green); }
-.state-warning { --state: var(--amber); }
-.state-danger  { --state: var(--red); }
-
-.result-title.safe    { color: var(--green); }
-.result-title.warning { color: var(--amber); }
-.result-title.danger  { color: var(--red); }
-
-/* ── Idle message ──────────────────────────────────────────────────── */
-.idle-msg {
-  position: relative;
-  z-index: 10;
-  text-align: center;
-  pointer-events: none;
-}
-
-.idle-msg h2 {
+/* Comparison Table */
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
   font-family: var(--mono);
-  font-size: 22px;
-  font-weight: 300;
-  color: rgba(0,200,255,0.5);
-  letter-spacing: 0.1em;
-  margin-bottom: 8px;
+  font-size: 12px;
+  margin-top: 16px;
 }
 
-.idle-msg p {
-  font-size: 13px;
+.comparison-table th, .comparison-table td {
+  padding: 12px 16px;
+  border: 1px solid var(--border-subtle);
+  text-align: left;
+}
+
+.comparison-table th {
+  background: rgba(255,255,255,0.04);
+  color: var(--accent);
+}
+
+.comparison-table tr:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+/* History Table */
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.history-table th, .history-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+}
+
+.history-table th {
   color: var(--text-dim);
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  text-transform: uppercase;
 }
 
-/* ── Corner decorations ────────────────────────────────────────────── */
-.corner {
-  position: absolute;
-  width: 20px; height: 20px;
-  border-color: var(--border-hi);
-  border-style: solid;
-  z-index: 20;
-}
-
-.corner-tl { top: 20px; left: 20px; border-width: 2px 0 0 2px; }
-.corner-tr { top: 20px; right: 20px; border-width: 2px 2px 0 0; }
-.corner-bl { bottom: 20px; left: 20px; border-width: 0 0 2px 2px; }
-.corner-br { bottom: 20px; right: 20px; border-width: 0 2px 2px 0; }
-
-/* ── Scan ticker ───────────────────────────────────────────────────── */
-.ticker {
-  position: absolute;
-  bottom: 36px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20;
-  font-family: var(--mono);
+.badge-tag {
   font-size: 10px;
-  color: var(--text-dim);
-  letter-spacing: 0.1em;
-  white-space: nowrap;
-  opacity: 0;
-  transition: opacity 0.4s;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  display: inline-block;
 }
 
-.ticker.active { opacity: 1; }
+.badge-tag.SAFE { background: rgba(0, 255, 157, 0.15); color: var(--safe); }
+.badge-tag.LOW_RISK { background: rgba(0, 255, 157, 0.1); color: var(--safe); }
+.badge-tag.SUSPICIOUS { background: rgba(255, 180, 0, 0.15); color: var(--warning); }
+.badge-tag.HIGH_RISK, .badge-tag.MALICIOUS { background: rgba(255, 59, 92, 0.15); color: var(--danger); }
 
-/* ── Hash display ──────────────────────────────────────────────────── */
-.hash-badge {
-  font-family: var(--mono);
-  font-size: 9px;
-  color: var(--text-dim);
-  word-break: break-all;
-  padding: 6px 0 0;
-  display: none;
-}
-
-.hash-badge.show { display: block; }
-
-/* ── Mobile ────────────────────────────────────────────────────────── */
-@media (max-width: 860px) {
-  .shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-  .left { padding: 32px 20px; }
-  .right { min-height: 420px; }
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .app-container { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .results-grid { grid-template-columns: 1fr; }
 }
 </style>
 </head>
 <body>
 
-<div class="shell">
-
-  <!-- ── Left Panel ───────────────────────────────────────────────── -->
-  <aside class="left">
-
-    <div class="brand">
-      <div class="brand-icon">🔐</div>
-      <div>
-        <div class="brand-name">Safety Downloader</div>
-        <div class="brand-sub">Threat Intelligence Scanner</div>
-      </div>
-    </div>
-
-    <div class="status-bar">
-      <div class="status-dot"></div>
-      ENGINE ONLINE — READY TO SCAN
-    </div>
-
-    <!-- URL Scanner -->
-    <div class="card">
-      <div class="card-label"><span>🌐</span> URL Scanner</div>
-      <div class="input-wrap">
-        <span class="input-icon">🔗</span>
-        <input type="text" id="urlInput" placeholder="https://example.com" autocomplete="off" spellcheck="false">
-      </div>
-      <div class="scanning-bar" id="urlBar"></div>
-      <button class="btn" id="urlBtn" onclick="scanUrl()"><span id="urlBtnText">⚡ SCAN URL</span></button>
-    </div>
-
-    <!-- File Scanner -->
-    <div class="card">
-      <div class="card-label"><span>📁</span> File Scanner</div>
-      <div class="file-drop" id="fileDrop" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
-        <input type="file" id="fileInput" onchange="handleFileSelect(event)">
-        <div class="file-drop-icon">📂</div>
-        <div class="file-drop-text">
-          <strong>Drop file here</strong> or click to browse<br>
-          Max 20MB — EXE, PDF, ZIP, DOCX…
+<div class="app-container">
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div>
+      <div class="brand">
+        <div class="brand-icon">🛡️</div>
+        <div class="brand-info">
+          <h1>Safety Downloader</h1>
+          <span id="brandSubMode">Dual AI Platform</span>
         </div>
-        <div class="file-name-display" id="fileNameDisplay"></div>
       </div>
-      <div class="scanning-bar" id="fileBar"></div>
-      <button class="btn" id="fileBtn" onclick="scanFile()"><span id="fileBtnText">⚡ SCAN FILE</span></button>
+
+      <!-- Mode Switcher -->
+      <div class="mode-toggle-card">
+        <div class="mode-toggle-header">
+          <span>Active Environment</span>
+          <span id="envStatusText">CLOUD AI</span>
+        </div>
+        <div class="mode-toggle-btns">
+          <button class="mode-btn active" id="btnModeOnline" onclick="setAppMode('online')">
+            <span>🌐</span> Online AI
+          </button>
+          <button class="mode-btn" id="btnModeOffline" onclick="setAppMode('offline')">
+            <span>🔒</span> Offline Local
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="nav-menu">
+        <a class="nav-item active" onclick="switchTab('overview')">
+          <span class="nav-icon">📊</span> Overview
+        </a>
+        <a class="nav-item" onclick="switchTab('scanner')">
+          <span class="nav-icon">🔍</span> Threat Scanner
+        </a>
+        <a class="nav-item" onclick="switchTab('history')">
+          <span class="nav-icon">📜</span> Scan History
+        </a>
+        <a class="nav-item" onclick="switchTab('intel')">
+          <span class="nav-icon">🌐</span> Threat Intel & RAG
+        </a>
+        <a class="nav-item" onclick="switchTab('api')">
+          <span class="nav-icon">⚡</span> Gemini AI Config
+        </a>
+      </nav>
     </div>
 
-    <div style="margin-top: auto; font-size: 11px; color: var(--text-dim); line-height: 1.6;">
-      Analyzes: binary headers · file signatures · heuristic patterns · URL structure · phishing indicators
+    <div class="sidebar-footer">
+      <div class="status-badge">
+        <div class="dot-pulse"></div>
+        <span id="systemEngineStatus">Dual Engine Ready</span>
+      </div>
+      <div>v2.4.0 · Localhost Isolation Guard</div>
     </div>
-
   </aside>
 
-  <!-- ── Right Panel (Globe) ──────────────────────────────────────── -->
-  <main class="right">
-    <div class="corner corner-tl"></div>
-    <div class="corner corner-tr"></div>
-    <div class="corner corner-bl"></div>
-    <div class="corner corner-br"></div>
-
-    <canvas id="globe-canvas"></canvas>
-
-    <div class="idle-msg" id="idleMsg">
-      <h2>AWAITING TARGET</h2>
-      <p>Paste a URL or drop a file to begin analysis</p>
-    </div>
-
-    <div class="result-overlay" id="resultOverlay" style="display:none;">
-      <div class="result-icon" id="resultIcon"></div>
-      <div class="result-title" id="resultTitle"></div>
-      <div class="result-score" id="resultScore"></div>
-      <div class="findings" id="findingsPanel">
-        <div class="findings-title">⚑ Threat Intelligence</div>
-        <div id="findingsList"></div>
+  <!-- ── Main Content ── -->
+  <main class="main-content">
+    <!-- Top Nav Header -->
+    <header class="top-bar">
+      <div class="page-title">
+        <h2 id="viewHeading">Security Operations Center</h2>
+        <span class="mode-indicator-pill" id="headerModePill">ONLINE AI MODE</span>
       </div>
-      <div class="hash-badge" id="hashBadge"></div>
-    </div>
+      <div class="top-actions">
+        <button class="btn-pdf" onclick="triggerDownloadFullPdfReport()" id="btnTopDownloadPdf" style="display:none;">
+          <span>📑</span> Download Full Report (PDF)
+        </button>
+        <button class="btn-secondary" onclick="exportCurrentReport()" id="btnExportReport" style="display:none;">
+          <span>📄</span> Export Text
+        </button>
+        <button class="btn-primary" onclick="switchTab('scanner')">
+          <span>⚡</span> Quick Scan
+        </button>
+      </div>
+    </header>
 
-    <div class="ticker" id="ticker">[ SCANNING… ]</div>
+    <!-- ── TAB: OVERVIEW / DASHBOARD ── -->
+    <section class="tab-pane active" id="tab-overview">
+      <div class="dashboard-grid">
+        <!-- Left: Quick Launcher Card -->
+        <div class="cyber-card">
+          <div class="card-title">
+            <span>Target Dispatcher</span>
+            <span style="font-size:10px; color:var(--text-dim);" id="dispatcherModeNotice">Gemini Reasoner Active</span>
+          </div>
+
+          <div class="input-tabs">
+            <button class="input-tab-btn active" id="tabUrlBtn" onclick="switchScannerMode('url')">URL / Phishing</button>
+            <button class="input-tab-btn" id="tabFileBtn" onclick="switchScannerMode('file')">Media & Executables</button>
+          </div>
+
+          <!-- URL Form -->
+          <div id="urlScanSection" class="scanner-box">
+            <div class="url-input-wrap">
+              <span class="url-icon">🔗</span>
+              <input type="text" id="targetUrlInput" placeholder="https://example.com/login" autocomplete="off" />
+            </div>
+            <button class="btn-primary" style="width:100%; justify-content:center;" onclick="executeUrlScan()">
+              <span>Scan Target URL</span>
+            </button>
+          </div>
+
+          <!-- File Form -->
+          <div id="fileScanSection" class="scanner-box" style="display:none;">
+            <div class="drop-zone" id="fileDropZone" onclick="document.getElementById('hiddenFileInput').click()">
+              <div class="drop-icon">📁</div>
+              <div class="drop-title" id="selectedFileName">Drop files or click to browse</div>
+              <div class="drop-sub">JPG, PNG, WEBP, MP4, PDF, SVG, EXE (Max 20MB)</div>
+            </div>
+            <input type="file" id="hiddenFileInput" style="display:none" onchange="handleFileChosen(event)" />
+            <button class="btn-primary" style="width:100%; justify-content:center; margin-top:14px;" onclick="executeFileScan()">
+              <span>Analyze Media Container</span>
+            </button>
+          </div>
+
+          <!-- Real-Time Pipeline Progress Tracker -->
+          <div class="pipeline-card" id="pipelineProgressBox" style="display:none;">
+            <div class="pipeline-header">
+              <span class="pipeline-title">REAL-TIME SCAN PIPELINE</span>
+              <span style="font-family:var(--mono); font-size:11px; color:var(--accent);" id="pipelinePercentText">0%</span>
+            </div>
+            <div class="pipeline-progress-bar-wrap">
+              <div class="pipeline-progress-bar" id="pipelineProgressBar"></div>
+            </div>
+            <div class="pipeline-steps">
+              <div class="pipeline-step" id="pStep-HASH_SIGNATURES">
+                <div class="step-main-row">
+                  <span>1. Header Signatures & Magic Bytes</span>
+                  <span class="step-status">PENDING</span>
+                </div>
+                <div class="step-detail-row">Waiting to initialize...</div>
+              </div>
+              <div class="pipeline-step" id="pStep-STRUCTURAL_ANALYSIS">
+                <div class="step-main-row">
+                  <span>2. Structural Chunks & Polyglots</span>
+                  <span class="step-status">PENDING</span>
+                </div>
+                <div class="step-detail-row">Container validation...</div>
+              </div>
+              <div class="pipeline-step" id="pStep-STEGO_ENTROPY">
+                <div class="step-main-row">
+                  <span>3. LSB Steganography & Entropy</span>
+                  <span class="step-status">PENDING</span>
+                </div>
+                <div class="step-detail-row">Bit distribution check...</div>
+              </div>
+              <div class="pipeline-step" id="pStep-BEHAVIORAL_SANDBOX">
+                <div class="step-main-row">
+                  <span>4. Isolated Behavioral Sandbox</span>
+                  <span class="step-status">PENDING</span>
+                </div>
+                <div class="step-detail-row">Static emulation trace...</div>
+              </div>
+              <div class="pipeline-step" id="pStep-AI_REASONING">
+                <div class="step-main-row">
+                  <span>5. Gemini Security Reasoning</span>
+                  <span class="step-status">PENDING</span>
+                </div>
+                <div class="step-detail-row">Multimodal reasoning...</div>
+              </div>
+              <div class="pipeline-step" id="pStep-EVIDENCE_FUSION">
+                <div class="step-main-row">
+                  <span>6. Evidence Fusion & Verdict</span>
+                  <span class="step-status">PENDING</span>
+                </div>
+                <div class="step-detail-row">Aggregating telemetry...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: 3D Visualization Console -->
+        <div class="visualizer-wrapper">
+          <canvas id="globeCanvas"></canvas>
+          <div class="visualizer-overlay">
+            <div class="visualizer-header">
+              <div class="target-badge" id="activeTargetBadge">Target: Awaiting Input</div>
+              <div style="font-family:var(--mono); font-size:11px; color:var(--accent);" id="globeTelemetryText">READY</div>
+            </div>
+            <div id="globeCenterAlert" style="text-align:center; font-family:var(--mono); margin:auto;">
+              <div style="font-size:32px; margin-bottom:8px;">🌐</div>
+              <div style="font-weight:700; color:#fff; font-size:14px;">HYBRID THREAT RADAR</div>
+              <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">Deploy scan to activate structural telemetry</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-family:var(--mono); font-size:10px; color:var(--text-muted);">
+              <span>LATENCY: &lt;15ms</span>
+              <span>SANDBOX: ISOLATED</span>
+              <span id="envNetTag">NET: ALLOWED (SSRF GUARDED)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scan Results Section (Dynamically rendered) -->
+      <div id="resultsContainer" style="margin-top:28px; display:none;"></div>
+    </section>
+
+    <!-- ── TAB: THREAT SCANNER (Dedicated View) ── -->
+    <section class="tab-pane" id="tab-scanner">
+      <div class="cyber-card" style="margin-bottom:24px;">
+        <div class="card-title">Dedicated Analysis Console</div>
+        <p style="font-size:13px; color:var(--text-dim); margin-bottom:18px;">
+          Choose between URL threat intelligence or multi-layered media container structural parsing.
+        </p>
+        <div style="display:flex; gap:12px;">
+          <input type="text" id="dedicatedUrlInput" placeholder="Enter target URL for phishing, punycode, & brand inspection" style="flex:1; padding:12px; background:rgba(0,0,0,0.4); border:1px solid var(--border); border-radius:6px; color:#fff; font-family:var(--mono); font-size:13px;" />
+          <button class="btn-primary" onclick="executeDedicatedUrlScan()">Scan URL</button>
+        </div>
+      </div>
+      <div id="dedicatedResultsArea"></div>
+    </section>
+
+    <!-- ── TAB: SCAN HISTORY ── -->
+    <section class="tab-pane" id="tab-history">
+      <div class="cyber-card">
+        <div class="card-title">
+          <span>Audit Log & Scan History</span>
+          <button class="btn-secondary" onclick="clearHistoryLog()">Clear History</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Target</th>
+                <th>Type</th>
+                <th>Mode</th>
+                <th>Score</th>
+                <th>Verdict</th>
+                <th>PDF Report</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              <tr>
+                <td colspan="8" style="text-align:center; color:var(--text-dim); padding:24px;">No scan history recorded.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TAB: THREAT INTEL & RAG ── -->
+    <section class="tab-pane" id="tab-intel">
+      <div class="cyber-card" style="margin-bottom:24px;">
+        <div class="card-title">Offline RAG Cybersecurity Knowledge Base</div>
+        <p style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">
+          Curated MITRE ATT&CK techniques, steganographic signatures, and phishing prevention guidelines accessible 100% offline.
+        </p>
+        <div id="ragEntriesList" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;"></div>
+      </div>
+    </section>
+
+    <!-- ── TAB: GEMINI API CONFIGURATION ── -->
+    <section class="tab-pane" id="tab-api">
+      <div class="cyber-card">
+        <div class="card-title">Gemini AI Security Center Configuration</div>
+        <div class="settings-form">
+          <div class="security-notice-box">
+            🔒 <strong>Client-Side Key Privacy</strong>: Your Gemini API Key is stored securely in your browser's private session storage or read from server environment. It is never written to public databases, logs, or scan history records.
+          </div>
+
+          <div class="form-group">
+            <label for="geminiKeyInput">Gemini API Key</label>
+            <div style="display:flex; gap:8px;">
+              <input type="password" id="geminiKeyInput" placeholder="AIzaSy... (leave blank to use server environment key)" style="flex:1;" />
+              <button class="btn-secondary" onclick="toggleKeyVisibility()">👁️</button>
+            </div>
+            <span class="form-help">Enter your custom Google AI Studio key, or use default environment configuration.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="geminiModelSelect">Reasoning Model</label>
+            <select id="geminiModelSelect">
+              <option value="gemini-3.6-flash" selected>gemini-3.6-flash (Recommended, High Availability & Low Latency)</option>
+              <option value="gemini-2.5-flash">gemini-2.5-flash (Fast Fallback Engine)</option>
+              <option value="gemini-3.8-flash">gemini-3.8-flash (Standard)</option>
+              <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview (Deep Multi-Step Reasoning)</option>
+            </select>
+          </div>
+
+          <div style="display:flex; gap:12px; margin-top:8px;">
+            <button class="btn-primary" onclick="testGeminiConnectionUI()">
+              <span>Test Connection</span>
+            </button>
+            <button class="btn-secondary" onclick="saveGeminiSettings()">Save Key Locally</button>
+            <button class="btn-secondary" onclick="clearGeminiSettings()">Remove Key</button>
+          </div>
+
+          <div id="geminiTestStatus" style="font-family:var(--mono); font-size:12px; margin-top:12px; display:none;"></div>
+        </div>
+      </div>
+    </section>
+
   </main>
-
 </div>
 
+<!-- ═════════════════════════════════════════════════════════════════════════
+     APPLICATION SCRIPTS (Three.js 3D Radar + Dual-Mode Engine Orchestration)
+═════════════════════════════════════════════════════════════════════════ -->
 <script>
-/* ═══════════════════════════════════════════════════
-   THREE.JS GLOBE
-═══════════════════════════════════════════════════ */
-const canvas = document.getElementById('globe-canvas');
-const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// State Management
+let currentMode = 'online'; // 'online' | 'offline'
+let currentScannerType = 'url'; // 'url' | 'file'
+let selectedFile = null;
+let lastScanResult = null;
+let activeEventSource = null;
+let activePollInterval = null;
 
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
-camera.position.z = 22;
+// Initialize app on load
+window.addEventListener('DOMContentLoaded', () => {
+  initGlobe();
+  loadSavedSettings();
+  loadHistory();
+  loadRagKnowledge();
+});
 
-// Globe
-const geo = new THREE.SphereGeometry(8, 96, 96);
-const mat = new THREE.MeshBasicMaterial({ color: 0x001eff, wireframe: true });
-const globe = new THREE.Mesh(geo, mat);
-scene.add(globe);
+// Mode Switching
+function setAppMode(mode) {
+  currentMode = mode;
+  const isOffline = mode === 'offline';
 
-// Glow shell
-const glowGeo = new THREE.SphereGeometry(8.8, 96, 96);
-const glowMat = new THREE.MeshBasicMaterial({ color: 0x00c8ff, transparent: true, opacity: 0.06 });
-const glow = new THREE.Mesh(glowGeo, glowMat);
-scene.add(glow);
-
-// Particles ring
-const ringPoints = [];
-for (let i = 0; i < 200; i++) {
-  const theta = Math.random() * Math.PI * 2;
-  const r = 10 + Math.random() * 2;
-  ringPoints.push(r * Math.cos(theta), (Math.random() - 0.5) * 2, r * Math.sin(theta));
-}
-const ringGeo = new THREE.BufferGeometry();
-ringGeo.setAttribute('position', new THREE.Float32BufferAttribute(ringPoints, 3));
-const ringMat = new THREE.PointsMaterial({ color: 0x00c8ff, size: 0.08, transparent: true, opacity: 0.4 });
-const ring = new THREE.Points(ringGeo, ringMat);
-scene.add(ring);
-
-function resizeGlobe() {
-  const el = document.querySelector('.right');
-  if (!el) return;
-  const w = el.clientWidth, h = el.clientHeight;
-  renderer.setSize(w, h);
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-}
-resizeGlobe();
-window.addEventListener('resize', resizeGlobe);
-
-let targetColor = new THREE.Color(0x001eff);
-let currentColor = new THREE.Color(0x001eff);
-
-function setGlobeState(state) {
-  const colors = { safe: 0x0044ff, medium: 0xffb400, danger: 0xff2244, idle: 0x001eff };
-  targetColor.setHex(colors[state] || colors.idle);
-}
-
-(function animate() {
-  requestAnimationFrame(animate);
-  globe.rotation.y += 0.0012;
-  glow.rotation.y  += 0.0009;
-  ring.rotation.y  -= 0.0006;
-  currentColor.lerp(targetColor, 0.04);
-  mat.color.copy(currentColor);
-  glowMat.color.copy(currentColor);
-  renderer.render(scene, camera);
-})();
-
-/* ═══════════════════════════════════════════════════
-   UI HELPERS
-═══════════════════════════════════════════════════ */
-function setScanning(type, active) {
-  const bar = document.getElementById(type === 'url' ? 'urlBar' : 'fileBar');
-  const btn = document.getElementById(type === 'url' ? 'urlBtn' : 'fileBtn');
-  const txt = document.getElementById(type === 'url' ? 'urlBtnText' : 'fileBtnText');
-  const tick = document.getElementById('ticker');
-
-  bar.classList.toggle('active', active);
-  btn.disabled = active;
-  txt.textContent = active ? '⏳ ANALYZING…' : (type === 'url' ? '⚡ SCAN URL' : '⚡ SCAN FILE');
-  tick.classList.toggle('active', active);
-  if (active) tick.textContent = type === 'url' ? '[ ANALYZING URL… ]' : '[ ANALYZING FILE… ]';
-}
-
-function typeText(el, text, speed = 35) {
-  el.textContent = '';
-  let i = 0;
-  const iv = setInterval(() => {
-    if (i < text.length) { el.textContent += text[i++]; }
-    else clearInterval(iv);
-  }, speed);
-}
-
-function showResult(data) {
-  const overlay   = document.getElementById('resultOverlay');
-  const idleMsg   = document.getElementById('idleMsg');
-  const icon      = document.getElementById('resultIcon');
-  const title     = document.getElementById('resultTitle');
-  const score     = document.getElementById('resultScore');
-  const findings  = document.getElementById('findingsPanel');
-  const list      = document.getElementById('findingsList');
-  const hashBadge = document.getElementById('hashBadge');
-
-  idleMsg.style.display   = 'none';
-  overlay.style.display   = 'block';
-  findings.style.display  = 'block';
-  findings.classList.add('show');
-  icon.classList.add('show');
-
-  const level = data.riskLevel;
-  let stateKey, stateClass, iconChar, titleText;
-
-  if (level === 'SAFE') {
-    stateKey = 'safe'; stateClass = 'safe'; iconChar = '✅'; titleText = 'SYSTEM SECURE';
-  } else if (level === 'SLIGHTLY_RISKY') {
-    stateKey = 'medium'; stateClass = 'warning'; iconChar = '⚠️'; titleText = 'LOW RISK';
-  } else if (level === 'MODERATE') {
-    stateKey = 'medium'; stateClass = 'warning'; iconChar = '⚠️'; titleText = 'MODERATE RISK';
+  if (isOffline) {
+    document.body.classList.add('mode-offline');
+    document.getElementById('btnModeOffline').classList.add('active');
+    document.getElementById('btnModeOnline').classList.remove('active');
+    document.getElementById('headerModePill').textContent = 'OFFLINE LOCAL MODE';
+    document.getElementById('headerModePill').style.borderColor = 'var(--offline-green)';
+    document.getElementById('brandSubMode').textContent = 'Air-Gapped Offline';
+    document.getElementById('envStatusText').textContent = 'AIR-GAPPED';
+    document.getElementById('dispatcherModeNotice').textContent = 'Zero Cloud I/O · 100% Offline';
+    document.getElementById('envNetTag').textContent = 'NET: 100% AIR-GAPPED';
+    setGlobeColor(0x00ff9d);
   } else {
-    stateKey = 'danger'; stateClass = 'danger'; iconChar = '🚨'; titleText = 'THREAT DETECTED';
+    document.body.classList.remove('mode-offline');
+    document.getElementById('btnModeOnline').classList.add('active');
+    document.getElementById('btnModeOffline').classList.remove('active');
+    document.getElementById('headerModePill').textContent = 'ONLINE AI MODE';
+    document.getElementById('headerModePill').style.borderColor = 'var(--online-cyan)';
+    document.getElementById('brandSubMode').textContent = 'Cloud AI Platform';
+    document.getElementById('envStatusText').textContent = 'CLOUD AI';
+    document.getElementById('dispatcherModeNotice').textContent = 'Gemini Reasoner Active';
+    document.getElementById('envNetTag').textContent = 'NET: ALLOWED (SSRF GUARDED)';
+    setGlobeColor(0x00c8ff);
+  }
+}
+
+// Tab Switching
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+  const targetPane = document.getElementById(`tab-${tabId}`);
+  if (targetPane) targetPane.classList.add('active');
+
+  const navLinks = document.querySelectorAll('.nav-item');
+  const mapping = {
+    overview: 0,
+    scanner: 1,
+    history: 2,
+    intel: 3,
+    api: 4
+  };
+  if (navLinks[mapping[tabId]]) {
+    navLinks[mapping[tabId]].classList.add('active');
   }
 
-  setGlobeState(stateKey);
-  icon.textContent = iconChar;
-  title.className = `result-title ${stateClass}`;
-  findings.className = `findings show ${stateClass}`;
-  typeText(title, titleText);
-  score.textContent = `Risk Score: ${data.riskScore} / 100  ·  ${data.riskLabel}`;
+  const titles = {
+    overview: 'Security Operations Center',
+    scanner: 'Deep Threat Scanner',
+    history: 'Incident Log & Scan History',
+    intel: 'Threat Intelligence & Knowledge Graph',
+    api: 'Gemini AI Security Center Configuration'
+  };
+  document.getElementById('viewHeading').textContent = titles[tabId] || 'Threat Console';
+}
 
-  // Findings
-  list.innerHTML = '';
-  (data.findings || []).forEach(f => {
-    const item = document.createElement('div');
-    item.className = `finding-item ${stateClass}`;
-    item.innerHTML = `<div class="finding-dot"></div><div>${f}</div>`;
-    list.appendChild(item);
+function switchScannerMode(mode) {
+  currentScannerType = mode;
+  if (mode === 'url') {
+    document.getElementById('urlScanSection').style.display = 'block';
+    document.getElementById('fileScanSection').style.display = 'none';
+    document.getElementById('tabUrlBtn').classList.add('active');
+    document.getElementById('tabFileBtn').classList.remove('active');
+  } else {
+    document.getElementById('urlScanSection').style.display = 'none';
+    document.getElementById('fileScanSection').style.display = 'block';
+    document.getElementById('tabFileBtn').classList.add('active');
+    document.getElementById('tabUrlBtn').classList.remove('active');
+  }
+}
+
+// File Drag & Drop
+const dropZone = document.getElementById('fileDropZone');
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) {
+    selectedFile = e.dataTransfer.files[0];
+    document.getElementById('selectedFileName').textContent = `📄 ${selectedFile.name} (${Math.round(selectedFile.size/1024)} KB)`;
+  }
+});
+
+function handleFileChosen(e) {
+  if (e.target.files.length) {
+    selectedFile = e.target.files[0];
+    document.getElementById('selectedFileName').textContent = `📄 ${selectedFile.name} (${Math.round(selectedFile.size/1024)} KB)`;
+  }
+}
+
+// ── Real-Time Pipeline Tracker Hook ──
+function attachRealtimePipeline(jobId) {
+  // Reset pipeline UI
+  const box = document.getElementById('pipelineProgressBox');
+  box.style.display = 'block';
+  document.getElementById('pipelineProgressBar').style.width = '5%';
+  document.getElementById('pipelinePercentText').textContent = '5%';
+
+  const stageKeys = [
+    'HASH_SIGNATURES',
+    'STRUCTURAL_ANALYSIS',
+    'STEGO_ENTROPY',
+    'BEHAVIORAL_SANDBOX',
+    'AI_REASONING',
+    'EVIDENCE_FUSION'
+  ];
+
+  stageKeys.forEach(k => {
+    const el = document.getElementById(`pStep-${k}`);
+    if (el) {
+      el.className = 'pipeline-step';
+      el.querySelector('.step-status').className = 'step-status';
+      el.querySelector('.step-status').textContent = 'PENDING';
+      el.querySelector('.step-detail-row').textContent = 'Queued...';
+    }
   });
 
-  // Hash badge for file scans
-  if (data.sha256) {
-    hashBadge.textContent = `SHA256: ${data.sha256}`;
-    hashBadge.classList.add('show');
-  } else {
-    hashBadge.classList.remove('show');
+  // Clean up any existing listeners
+  if (activeEventSource) {
+    activeEventSource.close();
+    activeEventSource = null;
   }
-}
+  if (activePollInterval) {
+    clearInterval(activePollInterval);
+    activePollInterval = null;
+  }
 
-function showError(msg) {
-  const overlay  = document.getElementById('resultOverlay');
-  const idleMsg  = document.getElementById('idleMsg');
-  const icon     = document.getElementById('resultIcon');
-  const title    = document.getElementById('resultTitle');
-  const score    = document.getElementById('resultScore');
-  const findings = document.getElementById('findingsPanel');
+  // Update UI handler
+  const renderJobUpdate = (job) => {
+    if (!job) return;
+    const pct = job.progressPercent || 0;
+    document.getElementById('pipelineProgressBar').style.width = `${pct}%`;
+    document.getElementById('pipelinePercentText').textContent = `${pct}%`;
 
-  idleMsg.style.display  = 'none';
-  overlay.style.display  = 'block';
-  findings.style.display = 'none';
-  icon.className = 'result-icon show';
-  icon.textContent = '❌';
-  title.className = 'result-title danger';
-  title.textContent = 'SCAN FAILED';
-  score.textContent = msg;
-  setGlobeState('danger');
-}
+    if (job.stages && Array.isArray(job.stages)) {
+      job.stages.forEach(s => {
+        const stepEl = document.getElementById(`pStep-${s.id}`);
+        if (stepEl) {
+          const statusBadge = stepEl.querySelector('.step-status');
+          const detailRow = stepEl.querySelector('.step-detail-row');
+          if (s.status === 'DONE') {
+            stepEl.className = 'pipeline-step done';
+            statusBadge.className = 'step-status done';
+            statusBadge.textContent = 'DONE';
+          } else if (s.status === 'ACTIVE') {
+            stepEl.className = 'pipeline-step active';
+            statusBadge.className = 'step-status active';
+            statusBadge.textContent = 'ACTIVE';
+          } else {
+            stepEl.className = 'pipeline-step';
+            statusBadge.className = 'step-status';
+            statusBadge.textContent = 'PENDING';
+          }
+          if (s.details) detailRow.textContent = s.details;
+        }
+      });
+    }
 
-/* ═══════════════════════════════════════════════════
-   SCAN FUNCTIONS
-═══════════════════════════════════════════════════ */
-async function scanUrl() {
-  const url = document.getElementById('urlInput').value.trim();
-  if (!url) { alert('Please enter a URL to scan.'); return; }
+    if (job.status === 'COMPLETE' || job.status === 'FAILED') {
+      if (activeEventSource) {
+        activeEventSource.close();
+        activeEventSource = null;
+      }
+      if (activePollInterval) {
+        clearInterval(activePollInterval);
+        activePollInterval = null;
+      }
+    }
+  };
 
-  setScanning('url', true);
+  // Connect via Server-Sent Events (SSE)
   try {
-    const res  = await fetch('/api/scan?url=' + encodeURIComponent(url));
-    const data = await res.json();
-    showResult(data);
+    const evtSource = new EventSource(`/api/scan/stream/${jobId}`);
+    activeEventSource = evtSource;
+
+    evtSource.onmessage = (event) => {
+      try {
+        const job = JSON.parse(event.data);
+        renderJobUpdate(job);
+      } catch (e) {}
+    };
+
+    evtSource.onerror = () => {
+      // Fallback to active polling if SSE disconnects
+      evtSource.close();
+      activeEventSource = null;
+      startPollingFallback(jobId, renderJobUpdate);
+    };
   } catch (e) {
-    showError('Could not reach scan engine');
-  } finally {
-    setScanning('url', false);
+    startPollingFallback(jobId, renderJobUpdate);
   }
 }
 
-async function scanFile() {
-  const fileInput = document.getElementById('fileInput');
-  if (!fileInput.files.length) { alert('Please select a file to scan.'); return; }
+function startPollingFallback(jobId, renderJobUpdate) {
+  if (activePollInterval) clearInterval(activePollInterval);
+  activePollInterval = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/scan/progress/${jobId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.job) {
+          renderJobUpdate(data.job);
+          if (data.job.status === 'COMPLETE' || data.job.status === 'FAILED') {
+            clearInterval(activePollInterval);
+            activePollInterval = null;
+          }
+        }
+      }
+    } catch (e) {}
+  }, 120);
+}
 
-  const fd = new FormData();
-  fd.append('file', fileInput.files[0]);
+// ── Execution Pipeline ──
+async function executeUrlScan() {
+  const url = document.getElementById('targetUrlInput').value.trim();
+  if (!url) {
+    alertModal('Please enter a target URL to scan.');
+    return;
+  }
+  await runUrlScan(url, 'resultsContainer');
+}
 
-  setScanning('file', true);
+async function executeDedicatedUrlScan() {
+  const url = document.getElementById('dedicatedUrlInput').value.trim();
+  if (!url) {
+    alertModal('Please enter a target URL.');
+    return;
+  }
+  await runUrlScan(url, 'dedicatedResultsArea');
+}
+
+async function runUrlScan(url, containerId) {
+  const jobId = 'job_' + Math.random().toString(36).substring(2, 10);
+  document.getElementById('activeTargetBadge').textContent = `Target: ${url}`;
+  document.getElementById('globeTelemetryText').textContent = 'INITIALIZING...';
+  
+  // Trigger 3D Neural Globe Dynamic Scanning Animation
+  startGlobeScanningVisuals(url);
+
+  // Attach real-time pipeline tracker
+  attachRealtimePipeline(jobId);
+
+  const apiKey = getSavedApiKey();
+  const model = document.getElementById('geminiModelSelect').value || 'gemini-3.6-flash';
+
   try {
-    const res  = await fetch('/api/scan-file', { method: 'POST', body: fd });
+    const res = await fetch('/api/scan/url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, mode: currentMode, apiKey, model, jobId })
+    });
     const data = await res.json();
-    showResult(data);
+    if (!data.success) {
+      alertModal(`Scan Failed: ${data.error || 'Unknown error'}`);
+      document.getElementById('globeTelemetryText').textContent = 'ERROR';
+      return;
+    }
+    lastScanResult = data;
+    renderResults(data, containerId);
+    loadHistory();
+    document.getElementById('btnExportReport').style.display = 'inline-flex';
+    document.getElementById('btnTopDownloadPdf').style.display = 'inline-flex';
+  } catch (err) {
+    alertModal(`Could not reach scanning engine: ${err.message}`);
+    document.getElementById('globeTelemetryText').textContent = 'FAILED';
+  }
+}
+
+async function executeFileScan() {
+  if (!selectedFile) {
+    alertModal('Please select or drop a media/executable file.');
+    return;
+  }
+
+  const jobId = 'job_' + Math.random().toString(36).substring(2, 10);
+  document.getElementById('activeTargetBadge').textContent = `File: ${selectedFile.name}`;
+  document.getElementById('globeTelemetryText').textContent = 'PARSING CHUNKS...';
+  
+  // Trigger 3D Neural Globe Dynamic Scanning Animation
+  startGlobeScanningVisuals(selectedFile.name);
+
+  // Attach real-time pipeline tracker
+  attachRealtimePipeline(jobId);
+
+  const apiKey = getSavedApiKey();
+  const model = document.getElementById('geminiModelSelect').value || 'gemini-3.6-flash';
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+  formData.append('mode', currentMode);
+  formData.append('jobId', jobId);
+  if (apiKey) formData.append('apiKey', apiKey);
+  formData.append('model', model);
+
+  try {
+    const res = await fetch('/api/scan/file', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alertModal(`Scan Failed: ${data.error || 'Scan error'}`);
+      document.getElementById('globeTelemetryText').textContent = 'ERROR';
+      return;
+    }
+    lastScanResult = data;
+    renderResults(data, 'resultsContainer');
+    loadHistory();
+    document.getElementById('btnExportReport').style.display = 'inline-flex';
+    document.getElementById('btnTopDownloadPdf').style.display = 'inline-flex';
+  } catch (err) {
+    alertModal(`File analysis engine error: ${err.message}`);
+    document.getElementById('globeTelemetryText').textContent = 'FAILED';
+  }
+}
+
+// ── Trigger Server-Side PDF Report Generation ──
+async function triggerDownloadFullPdfReport(customResult) {
+  const resultToDownload = customResult || lastScanResult;
+  if (!resultToDownload) {
+    alertModal('No scan results available to generate PDF.');
+    return;
+  }
+
+  alertModal('Generating formatted audit PDF document on server...');
+
+  try {
+    const response = await fetch('/api/report/pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scanResult: resultToDownload })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: 'Failed' }));
+      throw new Error(err.error || 'PDF generation failure');
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    const safeTarget = (resultToDownload.target || 'target').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 25);
+    link.download = `Safety_Report_${safeTarget}_${Date.now()}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+  } catch (err) {
+    alertModal(`PDF Download Error: ${err.message}`);
+  }
+}
+
+// ── HTML Sanitizer for XSS Prevention ──
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Download report directly from history scan ID
+function downloadPdfByScanId(scanId) {
+  const safeId = encodeURIComponent(scanId);
+  window.open(`/api/report/pdf/${safeId}`, '_blank');
+}
+
+// ── Render Results ──
+function renderResults(data, containerId) {
+  const container = document.getElementById(containerId);
+  container.style.display = 'block';
+
+  // Present dynamic 3D globe animation & kinetic typography result HUD
+  presentGlobeVerdictVisuals(data);
+
+  const isSafe = data.verdict === 'SAFE' || data.verdict === 'LOW_RISK';
+  const isMalicious = data.verdict === 'MALICIOUS' || data.verdict === 'HIGH_RISK';
+  const icon = isMalicious ? '🚨' : isSafe ? '🛡️' : '⚠️';
+
+  document.getElementById('globeTelemetryText').textContent = data.verdict;
+
+  let structureHtml = '';
+  if (data.structureTree && data.structureTree.length) {
+    structureHtml = `
+      <div class="cyber-card" style="margin-top:20px;">
+        <div class="card-title">File Container Structure Tree</div>
+        <div>
+          ${data.structureTree.map(node => `
+            <div class="tree-node">
+              <span style="font-weight:700; color:#fff;">${escapeHtml(node.title)}:</span> ${escapeHtml(node.details)}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  let offsetHtml = '';
+  if (data.offsetTimeline && data.offsetTimeline.length) {
+    offsetHtml = `
+      <div class="cyber-card" style="margin-top:20px;">
+        <div class="card-title">Polyglot & Carved Offset Map</div>
+        <div class="offset-timeline">
+          ${data.offsetTimeline.map(o => `
+            <div class="offset-row">
+              <span class="offset-val">${escapeHtml(o.offset)}</span>
+              <span>${escapeHtml(o.label)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  let aiReasoningHtml = '';
+  if (data.aiAnalysis && data.aiAnalysis.available) {
+    aiReasoningHtml = `
+      <div class="ai-box">
+        <div class="ai-header">
+          <span>🧠 Gemini Security Intelligence Reasoning (${escapeHtml(data.aiAnalysis.model || 'gemini-3.6-flash')})</span>
+        </div>
+        <div class="ai-body">
+          <p><strong>Assessment:</strong> ${escapeHtml(data.aiAnalysis.explanation || 'Analyzed')}</p>
+          <p style="margin-top:8px;"><strong>Category:</strong> ${escapeHtml(data.aiAnalysis.attack_category || 'N/A')} · <strong>Confidence:</strong> ${Math.round((data.aiAnalysis.confidence||0)*100)}%</p>
+        </div>
+      </div>
+    `;
+  } else if (data.aiAnalysis && !data.aiAnalysis.available) {
+    aiReasoningHtml = `
+      <div style="padding:12px; background:rgba(0,0,0,0.3); border:1px solid var(--border-subtle); border-radius:6px; font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:16px;">
+        ℹ️ ${escapeHtml(data.aiAnalysis.fallbackNotice || 'AI reasoning unavailable. Local heuristic verdict active.')}
+      </div>
+    `;
+  }
+
+  let threatGraphHtml = '';
+  if (data.graph && data.graph.nodes) {
+    threatGraphHtml = `
+      <div class="cyber-card" style="margin-top:20px;">
+        <div class="card-title">Threat Relationship Graph (DNS Host & Mail Records)</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          ${data.graph.nodes.map(n => `
+            <div style="font-family:var(--mono); font-size:11px; padding:6px 10px; border-radius:4px; background:rgba(0,0,0,0.4); border:1px solid var(--border);">
+              <span style="color:var(--accent)">[${escapeHtml(n.type.toUpperCase())}]</span> ${escapeHtml(n.label)}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = `
+    <!-- Verdict Banner -->
+    <div class="verdict-banner ${escapeHtml(data.verdict)}">
+      <div class="verdict-left">
+        <div class="verdict-icon">${icon}</div>
+        <div>
+          <div class="verdict-title">${escapeHtml(data.verdict.replace('_', ' '))}</div>
+          <div class="verdict-sub">${escapeHtml(data.recommendation)}</div>
+        </div>
+      </div>
+      <div class="score-badge">
+        <div class="score-num">${escapeHtml(data.riskScore)}<span style="font-size:14px;">/100</span></div>
+        <div class="score-label">Risk Composite Score</div>
+      </div>
+    </div>
+
+    <!-- Download PDF Action Bar -->
+    <div class="results-action-bar">
+      <div class="action-bar-info">
+        <span>Target: <strong>${escapeHtml(data.target)}</strong></span> · 
+        <span>Scan ID: <strong>${escapeHtml(data.scanId || 'N/A')}</strong></span>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn-pdf" onclick="triggerDownloadFullPdfReport()">
+          <span>📑</span> Download Full Report (PDF)
+        </button>
+        <button class="btn-secondary" onclick="exportCurrentReport()">
+          <span>📄</span> Export Text
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Layers Ribbon -->
+    <div class="layers-ribbon">
+      <div class="layer-chip active"><span>✓</span> Traditional Heuristics</div>
+      <div class="layer-chip active"><span>✓</span> Container Magic & Chunks</div>
+      <div class="layer-chip active"><span>✓</span> Statistical Feature Vector</div>
+      <div class="layer-chip active"><span>✓</span> Static String Pattern Trace</div>
+      ${data.mode === 'online' ? '<div class="layer-chip active" style="border-color:var(--purple); color:#e2b6ff;"><span>🧠</span> Gemini AI Reasoner</div>' : '<div class="layer-chip"><span>🔒</span> 100% Offline Air-Gapped</div>'}
+    </div>
+
+    ${aiReasoningHtml}
+
+    <!-- Detail Grid -->
+    <div class="results-grid">
+      <!-- Findings Panel -->
+      <div class="cyber-card">
+        <div class="card-title">Consolidated Threat Findings (${data.findings?.length || 0})</div>
+        <div class="detail-list">
+          ${(data.findings || ['No anomalous indicators detected']).map(f => `
+            <div class="detail-item ${isMalicious ? 'danger' : 'safe'}">
+              <span>•</span>
+              <div>${escapeHtml(f)}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Telemetry Scores -->
+      <div class="cyber-card">
+        <div class="card-title">Telemetry Layer Scores</div>
+        <div style="font-family:var(--mono); font-size:12px; display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border-subtle);">
+            <span>Static Signature Score:</span>
+            <strong>${escapeHtml(data.layerScores?.staticScore ?? 'N/A')}/100</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border-subtle);">
+            <span>Statistical Vector Anomaly Score:</span>
+            <strong>${escapeHtml(data.layerScores?.mlScore ?? 'N/A')}/100</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border-subtle);">
+            <span>Static Pattern Disassembly Score:</span>
+            <strong>${escapeHtml(data.layerScores?.behaviorScore ?? 'N/A')}/100</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border-subtle);">
+            <span>AI Reasoning Assessment:</span>
+            <strong>${escapeHtml(data.layerScores?.aiAssessment ?? 'N/A')}/100</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; padding:6px 0;">
+            <span>Confidence Index:</span>
+            <strong style="color:var(--safe)">${Math.round((data.confidence||0.9)*100)}%</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${structureHtml}
+    ${offsetHtml}
+    ${threatGraphHtml}
+  `;
+}
+
+// ── History Management ──
+async function loadHistory() {
+  try {
+    const res = await fetch('/api/history');
+    const data = await res.json();
+    const tbody = document.getElementById('historyTableBody');
+    if (!data.history || data.history.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-dim); padding:24px;">No scan history recorded.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.history.map(item => `
+      <tr>
+        <td style="color:var(--text-dim)">${escapeHtml(new Date(item.timestamp).toLocaleTimeString())}</td>
+        <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><strong>${escapeHtml(item.target)}</strong></td>
+        <td><span style="color:var(--accent)">${escapeHtml((item.targetType||'').toUpperCase())}</span></td>
+        <td>${item.mode === 'online' ? '🌐 Online AI' : '🔒 Offline'}</td>
+        <td>${escapeHtml(item.riskScore)}/100</td>
+        <td><span class="badge-tag ${escapeHtml(item.verdict)}">${escapeHtml(item.verdict)}</span></td>
+        <td>
+          <button class="btn-pdf" style="padding:3px 8px; font-size:10px;" onclick="downloadPdfByScanId('${encodeURIComponent(item.id)}')">
+            PDF
+          </button>
+        </td>
+        <td><button class="btn-secondary" style="padding:3px 8px; font-size:10px;" onclick="deleteHistoryItem('${encodeURIComponent(item.id)}')">Delete</button></td>
+      </tr>
+    `).join('');
   } catch (e) {
-    showError('Could not reach scan engine');
-  } finally {
-    setScanning('file', false);
+    console.warn('History fetch error', e);
   }
 }
 
-/* ═══════════════════════════════════════════════════
-   FILE DROP
-═══════════════════════════════════════════════════ */
-function handleFileSelect(e) {
-  const f = e.target.files[0];
-  if (f) document.getElementById('fileNameDisplay').textContent = `📄 ${f.name}`;
+async function deleteHistoryItem(id) {
+  await fetch(`/api/history/${id}`, { method: 'DELETE' });
+  loadHistory();
 }
 
-function handleDragOver(e) {
-  e.preventDefault();
-  document.getElementById('fileDrop').classList.add('drag-over');
-}
-
-function handleDragLeave(e) {
-  document.getElementById('fileDrop').classList.remove('drag-over');
-}
-
-function handleDrop(e) {
-  e.preventDefault();
-  document.getElementById('fileDrop').classList.remove('drag-over');
-  const f = e.dataTransfer.files[0];
-  if (f) {
-    const dt = new DataTransfer();
-    dt.items.add(f);
-    document.getElementById('fileInput').files = dt.files;
-    document.getElementById('fileNameDisplay').textContent = `📄 ${f.name}`;
+async function clearHistoryLog() {
+  if (confirm('Clear all audit scan records?')) {
+    await fetch('/api/history', { method: 'DELETE' });
+    loadHistory();
   }
 }
 
-/* ── Enter key on URL input ── */
-document.getElementById('urlInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') scanUrl();
-});
+// ── Export Security Report (Text) ──
+function exportCurrentReport() {
+  if (!lastScanResult) {
+    alertModal('No scan results available to export.');
+    return;
+  }
+
+  const reportText = `
+==================================================================
+           SAFETY DOWNLOADER CYBERSECURITY REPORT
+==================================================================
+Scan ID:        ${lastScanResult.scanId}
+Timestamp:      ${lastScanResult.timestamp}
+Target:         ${lastScanResult.target}
+Target Type:    ${lastScanResult.targetType}
+Mode:           ${lastScanResult.mode.toUpperCase()}
+------------------------------------------------------------------
+FINAL VERDICT:  ${lastScanResult.verdict}
+Risk Score:     ${lastScanResult.riskScore} / 100
+Confidence:     ${Math.round((lastScanResult.confidence || 0.9) * 100)}%
+Recommendation: ${lastScanResult.recommendation}
+------------------------------------------------------------------
+TELEMETRY LAYER BREAKDOWN:
+- Static Analysis Score:     ${lastScanResult.layerScores?.staticScore ?? 'N/A'}
+- ML Anomaly Score:          ${lastScanResult.layerScores?.mlScore ?? 'N/A'}
+- Behavioral Sandbox Score:  ${lastScanResult.layerScores?.behaviorScore ?? 'N/A'}
+- AI Assessment Score:       ${lastScanResult.layerScores?.aiAssessment ?? 'N/A'}
+
+FINDINGS:
+${(lastScanResult.findings || []).map(f => `* ${f}`).join('\n')}
+
+AI REASONING:
+${lastScanResult.aiAnalysis?.explanation || 'Local deterministic analysis applied.'}
+
+LIMITATIONS:
+* Static heuristics and local models cannot replace sandbox detonation in hostile isolated environments.
+==================================================================
+Generated by Safety Downloader AI Platform v2.4.0
+`;
+
+  const blob = new Blob([reportText], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Safety_Report_${Date.now()}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Local RAG Knowledge ──
+async function loadRagKnowledge() {
+  const container = document.getElementById('ragEntriesList');
+  try {
+    const res = await fetch('/api/system/diagnostics');
+    const diag = await res.json();
+    const articles = [
+      { id: 'T1036', title: 'MITRE ATT&CK T1036: Masquerading', summary: 'Adversaries disguise malicious payloads with extension spoofing and misleading MIME headers.' },
+      { id: 'T1027.003', title: 'MITRE ATT&CK T1027.003: Steganography', summary: 'Payloads hidden inside digital media LSB pixels or audio waveforms.' },
+      { id: 'POLYGLOT-01', title: 'Polyglot Execution Pattern', summary: 'Dual-parsing payload structured as both valid image and executable Windows PE/ZIP container.' },
+      { id: 'PHISH-TYPO-01', title: 'Homograph & Typosquatting', summary: 'Adversaries register lookalike domains using character replacement or IDN Punycode.' }
+    ];
+
+    container.innerHTML = articles.map(a => `
+      <div style="background:rgba(0,0,0,0.3); border:1px solid var(--border-subtle); padding:16px; border-radius:6px;">
+        <div style="font-family:var(--mono); font-size:11px; color:var(--accent); font-weight:700;">${a.id}</div>
+        <div style="font-size:13px; font-weight:600; color:#fff; margin:4px 0;">${a.title}</div>
+        <div style="font-size:12px; color:var(--text-dim); line-height:1.4;">${a.summary}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+// ── Diagnostics ──
+async function fetchDiagnostics() {
+  try {
+    const res = await fetch('/api/system/diagnostics');
+    const data = await res.json();
+    document.getElementById('diagJsonView').textContent = JSON.stringify(data, null, 2);
+  } catch (e) {
+    document.getElementById('diagJsonView').textContent = 'Failed to load telemetry';
+  }
+}
+
+// ── Gemini Key Settings ──
+function getSavedApiKey() {
+  return sessionStorage.getItem('safety_gemini_key') || localStorage.getItem('safety_gemini_key') || '';
+}
+
+function loadSavedSettings() {
+  const key = getSavedApiKey();
+  if (key) {
+    document.getElementById('geminiKeyInput').value = key;
+  }
+}
+
+function saveGeminiSettings() {
+  const key = document.getElementById('geminiKeyInput').value.trim();
+  if (key) {
+    sessionStorage.setItem('safety_gemini_key', key);
+    alertModal('Gemini key saved securely for this browser session.');
+  }
+}
+
+function clearGeminiSettings() {
+  sessionStorage.removeItem('safety_gemini_key');
+  localStorage.removeItem('safety_gemini_key');
+  document.getElementById('geminiKeyInput').value = '';
+  alertModal('Gemini key cleared.');
+}
+
+function toggleKeyVisibility() {
+  const input = document.getElementById('geminiKeyInput');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+async function testGeminiConnectionUI() {
+  const apiKey = document.getElementById('geminiKeyInput').value.trim();
+  const model = document.getElementById('geminiModelSelect').value;
+  const statusBox = document.getElementById('geminiTestStatus');
+  statusBox.style.display = 'block';
+  statusBox.style.color = 'var(--accent)';
+  statusBox.textContent = 'Testing connection with Gemini API...';
+
+  try {
+    const res = await fetch('/api/gemini/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey, model })
+    });
+    const data = await res.json();
+    if (data.connected) {
+      statusBox.style.color = 'var(--safe)';
+      statusBox.textContent = `✓ Authenticated successfully with ${data.model}!`;
+    } else {
+      statusBox.style.color = 'var(--danger)';
+      statusBox.textContent = `✗ Connection failed: ${data.error}`;
+    }
+  } catch (err) {
+    statusBox.style.color = 'var(--danger)';
+    statusBox.textContent = `Connection error: ${err.message}`;
+  }
+}
+
+function alertModal(msg) {
+  let alertEl = document.getElementById('inUiNotification');
+  if (!alertEl) {
+    alertEl = document.createElement('div');
+    alertEl.id = 'inUiNotification';
+    alertEl.style.position = 'fixed';
+    alertEl.style.bottom = '24px';
+    alertEl.style.right = '24px';
+    alertEl.style.zIndex = '9999';
+    alertEl.style.background = '#0a1d2e';
+    alertEl.style.border = '1px solid var(--accent)';
+    alertEl.style.color = '#fff';
+    alertEl.style.padding = '14px 20px';
+    alertEl.style.borderRadius = '8px';
+    alertEl.style.fontFamily = 'var(--mono)';
+    alertEl.style.fontSize = '12px';
+    alertEl.style.boxShadow = '0 0 20px rgba(0,200,255,0.3)';
+    document.body.appendChild(alertEl);
+  }
+  alertEl.textContent = msg;
+  alertEl.style.display = 'block';
+  setTimeout(() => { alertEl.style.display = 'none'; }, 4000);
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// THREE.JS INTERACTIVE 3D NEURAL CYBER RADAR & KINETIC VISUALIZER
+// ═════════════════════════════════════════════════════════════════════════
+let scene, camera, renderer, globeGroup, wireSphere, particles, orbitalRing1, orbitalRing2;
+let targetGlobeColor = 0x00c8ff;
+let isScanActive = false;
+let rotSpeedY = 0.003;
+let targetRotSpeedY = 0.003;
+let rotSpeedX = 0.001;
+let targetRotSpeedX = 0.001;
+let scanTime = 0;
+let decryptInterval = null;
+
+function initGlobe() {
+  const canvas = document.getElementById('globeCanvas');
+  const container = canvas.parentElement;
+  const width = container.clientWidth || 600;
+  const height = container.clientHeight || 480;
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+  camera.position.z = 240;
+
+  renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  globeGroup = new THREE.Group();
+  scene.add(globeGroup);
+
+  // Wireframe outer sphere
+  const sphereGeo = new THREE.IcosahedronGeometry(70, 3);
+  const sphereMat = new THREE.MeshBasicMaterial({
+    color: targetGlobeColor,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.22
+  });
+  wireSphere = new THREE.Mesh(sphereGeo, sphereMat);
+  globeGroup.add(wireSphere);
+
+  // Inner orbital ring 1
+  const ringGeo1 = new THREE.TorusGeometry(84, 0.6, 16, 100);
+  const ringMat1 = new THREE.MeshBasicMaterial({
+    color: targetGlobeColor,
+    transparent: true,
+    opacity: 0.45
+  });
+  orbitalRing1 = new THREE.Mesh(ringGeo1, ringMat1);
+  orbitalRing1.rotation.x = Math.PI / 3;
+  globeGroup.add(orbitalRing1);
+
+  // Outer tilted orbital ring 2
+  const ringGeo2 = new THREE.TorusGeometry(98, 0.5, 16, 100);
+  const ringMat2 = new THREE.MeshBasicMaterial({
+    color: 0x00ff9d,
+    transparent: true,
+    opacity: 0.35
+  });
+  orbitalRing2 = new THREE.Mesh(ringGeo2, ringMat2);
+  orbitalRing2.rotation.y = Math.PI / 4;
+  globeGroup.add(orbitalRing2);
+
+  // Point particles representing neural radar nodes
+  const particleCount = 260;
+  const partGeo = new THREE.BufferGeometry();
+  const positions = new Float32Array(particleCount * 3);
+
+  for (let i = 0; i < particleCount; i++) {
+    const phi = Math.acos(-1 + (2 * i) / particleCount);
+    const theta = Math.sqrt(particleCount * Math.PI) * phi;
+    positions[i * 3]     = 70 * Math.cos(theta) * Math.sin(phi);
+    positions[i * 3 + 1] = 70 * Math.sin(theta) * Math.sin(phi);
+    positions[i * 3 + 2] = 70 * Math.cos(phi);
+  }
+
+  partGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const partMat = new THREE.PointsMaterial({
+    color: targetGlobeColor,
+    size: 2.4,
+    transparent: true,
+    opacity: 0.85
+  });
+  particles = new THREE.Points(partGeo, partMat);
+  globeGroup.add(particles);
+
+  // Animate loop with smooth momentum & dynamic scan acceleration
+  function animate() {
+    requestAnimationFrame(animate);
+    scanTime += 0.025;
+
+    // Smooth speed interpolation
+    rotSpeedY += (targetRotSpeedY - rotSpeedY) * 0.08;
+    rotSpeedX += (targetRotSpeedX - rotSpeedX) * 0.08;
+
+    globeGroup.rotation.y += rotSpeedY;
+    globeGroup.rotation.x += rotSpeedX;
+
+    if (orbitalRing1) {
+      orbitalRing1.rotation.z += rotSpeedY * 1.6;
+    }
+    if (orbitalRing2) {
+      orbitalRing2.rotation.x -= rotSpeedY * 1.3;
+    }
+
+    // Dynamic scanning particle wave
+    if (isScanActive && particles && wireSphere) {
+      const pulse = 1.0 + 0.08 * Math.sin(scanTime * 6);
+      particles.scale.set(pulse, pulse, pulse);
+      wireSphere.scale.set(pulse, pulse, pulse);
+    } else if (particles && wireSphere) {
+      particles.scale.set(1, 1, 1);
+      wireSphere.scale.set(1, 1, 1);
+    }
+
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  // Resize listener
+  window.addEventListener('resize', () => {
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  });
+}
+
+function setGlobeColor(hexColor) {
+  targetGlobeColor = hexColor;
+  if (wireSphere && particles) {
+    wireSphere.material.color.setHex(hexColor);
+    particles.material.color.setHex(hexColor);
+  }
+  if (orbitalRing1) {
+    orbitalRing1.material.color.setHex(hexColor);
+  }
+}
+
+// Kinetic Decrypt Text Reveal Effect
+function triggerKineticDecryptText(targetEl, finalText, durationMs = 700, callback) {
+  if (!targetEl) return;
+  if (decryptInterval) clearInterval(decryptInterval);
+
+  const glyphs = 'ABCDEF0123456789!@#$%^&*<>[]_~/\\';
+  const startTime = Date.now();
+  const len = finalText.length;
+
+  decryptInterval = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / durationMs, 1.0);
+    const revealedCount = Math.floor(progress * len);
+
+    let output = '';
+    for (let i = 0; i < len; i++) {
+      if (i < revealedCount) {
+        output += finalText[i];
+      } else if (finalText[i] === ' ') {
+        output += ' ';
+      } else {
+        output += glyphs[Math.floor(Math.random() * glyphs.length)];
+      }
+    }
+
+    targetEl.textContent = output;
+
+    if (progress >= 1.0) {
+      clearInterval(decryptInterval);
+      decryptInterval = null;
+      targetEl.textContent = finalText;
+      if (callback) callback();
+    }
+  }, 35);
+}
+
+// Start Globe Scanning Visuals (Fast Rotation & Scanning Aura)
+function startGlobeScanningVisuals(targetLabel) {
+  isScanActive = true;
+  targetRotSpeedY = 0.035; // Fast dynamic spin acceleration
+  targetRotSpeedX = 0.015;
+
+  const canvas = document.getElementById('globeCanvas');
+  const wrapper = canvas?.parentElement;
+  if (canvas) {
+    canvas.className = 'scanning';
+  }
+  if (wrapper) {
+    wrapper.className = 'visualizer-wrapper scanning';
+  }
+
+  setGlobeColor(0x00c8ff);
+
+  const centerAlert = document.getElementById('globeCenterAlert');
+  if (centerAlert) {
+    centerAlert.className = 'globe-hud-container';
+    centerAlert.innerHTML = `
+      <div class="globe-scan-spinner">
+        <div style="font-size:24px; animation: pulse 0.8s infinite;">⚡</div>
+      </div>
+      <div class="kinetic-decrypting" id="globeScanningTitle">NEURAL SCAN IN PROGRESS...</div>
+      <div style="font-size:11px; color:var(--text-dim); margin-top:6px;">Multi-layer static & heuristic telemetry streaming</div>
+    `;
+
+    const titleEl = document.getElementById('globeScanningTitle');
+    triggerKineticDecryptText(titleEl, 'NEURAL SCAN IN PROGRESS...', 600);
+  }
+}
+
+// Present Complete Verdict Visuals with Unique Kinetic Typography
+function presentGlobeVerdictVisuals(data) {
+  isScanActive = false;
+  targetRotSpeedY = 0.0035; // Smooth deceleration to normal rotation
+  targetRotSpeedX = 0.001;
+
+  const verdict = data.verdict || 'UNKNOWN';
+  const riskScore = data.riskScore ?? 0;
+  const isSafe = verdict === 'SAFE' || verdict === 'LOW_RISK';
+  const isMalicious = verdict === 'MALICIOUS' || verdict === 'HIGH_RISK';
+  const isSuspicious = verdict === 'SUSPICIOUS';
+
+  const canvas = document.getElementById('globeCanvas');
+  const wrapper = canvas?.parentElement;
+
+  let verdictClass = 'verdict-safe';
+  let globeHex = 0x00ff9d;
+  let icon = '🛡️';
+  let formattedVerdict = 'SAFE // VERIFIED';
+
+  if (isMalicious) {
+    verdictClass = 'verdict-unsafe';
+    globeHex = 0xff3b5c;
+    icon = '🚨';
+    formattedVerdict = verdict === 'HIGH_RISK' ? 'HIGH RISK // THREAT' : 'MALICIOUS // BLOCKED';
+  } else if (isSuspicious) {
+    verdictClass = 'verdict-suspicious';
+    globeHex = 0xffb400;
+    icon = '⚠️';
+    formattedVerdict = 'SUSPICIOUS // MEDIUM RISK';
+  } else if (verdict === 'LOW_RISK') {
+    verdictClass = 'verdict-safe';
+    globeHex = 0x00ff9d;
+    icon = '🛡️';
+    formattedVerdict = 'LOW RISK // MINOR WARNING';
+  } else if (verdict === 'UNKNOWN') {
+    verdictClass = '';
+    globeHex = 0x00c8ff;
+    icon = '❓';
+    formattedVerdict = 'UNKNOWN // INDETERMINATE';
+  }
+
+  setGlobeColor(globeHex);
+
+  if (canvas) {
+    canvas.className = verdictClass;
+  }
+  if (wrapper) {
+    wrapper.className = `visualizer-wrapper ${verdictClass}`;
+  }
+
+  const centerAlert = document.getElementById('globeCenterAlert');
+  if (centerAlert) {
+    centerAlert.className = 'globe-hud-container';
+    centerAlert.innerHTML = `
+      <div class="globe-hud-badge ${verdictClass}">
+        <div style="font-size:32px; line-height:1; margin-bottom:4px;">${icon}</div>
+        <div class="kinetic-verdict-title ${verdict}" id="kineticVerdictHeading">ANALYZING...</div>
+        <div style="font-size:11px; color:#fff; max-width:320px; margin:0 auto 8px auto; opacity:0.9;">
+          ${escapeHtml(data.recommendation || 'Analysis finalized.')}
+        </div>
+        <div class="kinetic-score-pill">
+          <span>RISK COMPOSITE:</span>
+          <strong id="kineticScoreCounter" style="color:${isMalicious ? 'var(--danger)' : isSafe ? 'var(--safe)' : 'var(--warning)'};">0/100</strong>
+        </div>
+      </div>
+    `;
+
+    const headingEl = document.getElementById('kineticVerdictHeading');
+    triggerKineticDecryptText(headingEl, formattedVerdict, 700);
+
+    // Animate score counter smoothly
+    const scoreCounterEl = document.getElementById('kineticScoreCounter');
+    let cur = 0;
+    const totalSteps = 25;
+    const stepVal = riskScore / totalSteps;
+    let stepCount = 0;
+    const scoreTimer = setInterval(() => {
+      stepCount++;
+      cur = Math.min(Math.round(stepCount * stepVal), riskScore);
+      if (scoreCounterEl) scoreCounterEl.textContent = `${cur}/100`;
+      if (stepCount >= totalSteps) {
+        clearInterval(scoreTimer);
+        if (scoreCounterEl) scoreCounterEl.textContent = `${riskScore}/100`;
+      }
+    }, 16);
+  }
+}
 </script>
 </body>
 </html>
