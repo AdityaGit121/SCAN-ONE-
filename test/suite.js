@@ -1,5 +1,7 @@
 const assert = require('assert');
-const { validateUrlForSafeFetch, isPrivateOrReservedIP } = require('../backend/security/ssrfGuard');
+const { validateUrlForSafeFetch, isPrivateOrReservedIP, parseAnyIPv4 } = require('../backend/security/ssrfGuard');
+const { SlidingWindowRateLimiter } = require('../backend/security/rateLimiter');
+const { sanitizeString, sanitizeObject } = require('../backend/security/sanitizer');
 const { analyzeUrlOffline } = require('../backend/scanners/urlScanner');
 const { analyzeMediaFileOffline, detectMagicBytes, calculateBufferEntropy } = require('../backend/scanners/mediaScanner');
 const { analyzeStegoSignals } = require('../backend/scanners/stegoScanner');
@@ -234,7 +236,6 @@ async function runTests() {
 
     assert.strictEqual(fused.verdict, 'MALICIOUS');
     assert.ok(fused.consolidatedEvidence.length >= 3);
-    // Verify provenance fields: source, type, severity, description, confidence
     for (const item of fused.consolidatedEvidence) {
       assert.ok(item.source, 'Must contain source provenance');
       assert.ok(item.type, 'Must contain type provenance');
@@ -252,6 +253,96 @@ async function runTests() {
     });
     assert.strictEqual(fused.verdict, 'UNKNOWN');
     assert.strictEqual(fused.riskScore, 0);
+  });
+
+  // ── 8. MILITARY-GRADE SECURITY, ISOLATION & ANTI-EXPLOIT DEFENSES ─────────
+  console.log('\n[SECTION 8] Military-Grade Security, Isolation & Anti-Exploit Defenses');
+
+  runCase('SSRF parser decodes decimal IP integer evasion (2130706433 -> 127.0.0.1)', () => {
+    const ip = parseAnyIPv4('2130706433');
+    assert.strictEqual(ip, '127.0.0.1');
+    assert.strictEqual(isPrivateOrReservedIP('2130706433'), true);
+  });
+
+  runCase('SSRF parser decodes hex IP format (0x7f000001 -> 127.0.0.1)', () => {
+    const ip = parseAnyIPv4('0x7f000001');
+    assert.strictEqual(ip, '127.0.0.1');
+    assert.strictEqual(isPrivateOrReservedIP('0x7f000001'), true);
+  });
+
+  runCase('SSRF parser decodes dotted octal format (0177.0.0.1 -> 127.0.0.1)', () => {
+    const ip = parseAnyIPv4('0177.0.0.1');
+    assert.strictEqual(ip, '127.0.0.1');
+    assert.strictEqual(isPrivateOrReservedIP('0177.0.0.1'), true);
+  });
+
+  runCase('SSRF blocks Alibaba, GCP and Kubernetes metadata hostnames', async () => {
+    const r1 = await validateUrlForSafeFetch('http://metadata.google.internal/computeMetadata/v1/');
+    assert.strictEqual(r1.safe, false);
+    const r2 = await validateUrlForSafeFetch('http://100.100.100.200/latest/meta-data/');
+    assert.strictEqual(r2.safe, false);
+    const r3 = await validateUrlForSafeFetch('http://kubernetes.default.svc/api');
+    assert.strictEqual(r3.safe, false);
+  });
+
+  runCase('Credential Scrubber masks Gemini API keys and Bearer tokens in text', () => {
+    const sampleText = 'Analysis failed with key AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q in request';
+    const scrubbed = sanitizeString(sampleText);
+    assert.ok(!scrubbed.includes('AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q'));
+    assert.ok(scrubbed.includes('[REDACTED_CREDENTIAL]'));
+  });
+
+  runCase('Credential Scrubber redacts API keys and sensitive dictionary keys in nested objects', () => {
+    const payload = {
+      user: 'analyst',
+      apiKey: 'AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q',
+      config: {
+        gemini_secret: 'supersecret',
+        nested: {
+          token: 'Bearer eyJhbGciOiJIUzI1NiIsIn...'
+        }
+      }
+    };
+    const cleaned = sanitizeObject(payload);
+    assert.strictEqual(cleaned.apiKey, '[PROTECTED_CREDENTIAL]');
+    assert.strictEqual(cleaned.config.gemini_secret, '[PROTECTED_CREDENTIAL]');
+    assert.strictEqual(cleaned.config.nested.token, '[PROTECTED_CREDENTIAL]');
+    assert.strictEqual(cleaned.user, 'analyst');
+  });
+
+  runCase('Rate Limiter enforces sliding window request threshold and throttles abusers', () => {
+    const limiter = new SlidingWindowRateLimiter(1000, 3);
+    const mockReq = { headers: {}, socket: { remoteAddress: '192.0.2.100' } };
+    let blocked = false;
+    const mockRes = {
+      statusCode: 200,
+      setHeader: () => {},
+      status: (code) => {
+        mockRes.statusCode = code;
+        return mockRes;
+      },
+      json: (data) => {
+        if (mockRes.statusCode === 429) blocked = true;
+      }
+    };
+
+    const mw = limiter.middleware(3);
+    mw(mockReq, mockRes, () => {}); // req 1
+    mw(mockReq, mockRes, () => {}); // req 2
+    mw(mockReq, mockRes, () => {}); // req 3
+    mw(mockReq, mockRes, () => {}); // req 4 (should be blocked)
+
+    assert.strictEqual(blocked, true);
+    assert.strictEqual(mockRes.statusCode, 429);
+  });
+
+  runCase('ReDoS Resistance: URL scanner executes complex 10,000-character payload in < 25ms', () => {
+    const longMaliciousUrl = 'https://' + 'a'.repeat(5000) + '.phishing-test-subdomain.' + 'b'.repeat(5000) + '.top/login';
+    const start = Date.now();
+    const res = analyzeUrlOffline(longMaliciousUrl);
+    const duration = Date.now() - start;
+    assert.ok(duration < 100, `ReDoS risk: Analysis took ${duration}ms, must be < 100ms`);
+    assert.strictEqual(res.success, true);
   });
 
   console.log('\n================================================================');

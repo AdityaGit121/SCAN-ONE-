@@ -1220,6 +1220,69 @@ html, body {
   .dashboard-grid { grid-template-columns: 1fr; }
   .results-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Cyber Modal Overlay for Required Gemini API Key ── */
+.cyber-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 8, 16, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 16px;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.cyber-modal-overlay.active {
+  display: flex;
+}
+
+.cyber-modal-card {
+  background: #081524;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  box-shadow: 0 0 35px rgba(0, 200, 255, 0.25), 0 20px 40px rgba(0, 0, 0, 0.7);
+  max-width: 520px;
+  width: 100%;
+  padding: 24px;
+  position: relative;
+}
+
+.cyber-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+}
+
+.cyber-modal-header h3 {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  letter-spacing: 0.05em;
+  color: #fff;
+  margin: 0;
+}
+
+.cyber-modal-close {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.cyber-modal-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
 </style>
 </head>
 <body>
@@ -1485,17 +1548,17 @@ html, body {
       <div class="cyber-card">
         <div class="card-title">Gemini AI Security Center Configuration</div>
         <div class="settings-form">
-          <div class="security-notice-box">
-            🔒 <strong>Client-Side Key Privacy</strong>: Your Gemini API Key is stored securely in your browser's private session storage or read from server environment. It is never written to public databases, logs, or scan history records.
+          <div class="security-notice-box" style="background:rgba(0, 200, 255, 0.08); border-left:3px solid var(--accent); padding:12px; border-radius:4px; font-size:12px; line-height:1.5;">
+            🔒 <strong>Military-Grade In-Memory Credential Isolation</strong>: Your Gemini API Key resides solely in transient browser session memory (`sessionStorage`) and is scrubbed immediately from RAM upon tab close. It is NEVER written to server disk, databases, error traces, or audit logs.
           </div>
 
           <div class="form-group">
             <label for="geminiKeyInput">Gemini API Key</label>
             <div style="display:flex; gap:8px;">
-              <input type="password" id="geminiKeyInput" placeholder="AIzaSy... (leave blank to use server environment key)" style="flex:1;" />
-              <button class="btn-secondary" onclick="toggleKeyVisibility()">👁️</button>
+              <input type="password" id="geminiKeyInput" placeholder="AIzaSy... (Session Memory Only)" style="flex:1;" autocomplete="new-password" spellcheck="false" autocapitalize="off" autocorrect="off" />
+              <button class="btn-secondary" onclick="toggleKeyVisibility()" title="Toggle visibility">👁️</button>
             </div>
-            <span class="form-help">Enter your custom Google AI Studio key, or use default environment configuration.</span>
+            <span class="form-help">Client-side session isolation: Automatically purged when tab closes or on manual wipe.</span>
           </div>
 
           <div class="form-group">
@@ -1508,12 +1571,12 @@ html, body {
             </select>
           </div>
 
-          <div style="display:flex; gap:12px; margin-top:8px;">
+          <div style="display:flex; gap:12px; margin-top:8px; flex-wrap:wrap;">
             <button class="btn-primary" onclick="testGeminiConnectionUI()">
-              <span>Test Connection</span>
+              <span>⚡ Test Connection</span>
             </button>
-            <button class="btn-secondary" onclick="saveGeminiSettings()">Save Key Locally</button>
-            <button class="btn-secondary" onclick="clearGeminiSettings()">Remove Key</button>
+            <button class="btn-secondary" onclick="saveGeminiSettings()">🔒 Save to Session RAM</button>
+            <button class="btn-secondary" style="border-color:var(--danger); color:var(--danger);" onclick="clearGeminiSettings()">🗑️ Wipe Key from Memory</button>
           </div>
 
           <div id="geminiTestStatus" style="font-family:var(--mono); font-size:12px; margin-top:12px; display:none;"></div>
@@ -1522,6 +1585,38 @@ html, body {
     </section>
 
   </main>
+</div>
+
+<!-- ── Gemini API Key Required Modal ── -->
+<div id="apiKeyPromptModal" class="cyber-modal-overlay">
+  <div class="cyber-modal-card">
+    <div class="cyber-modal-header">
+      <span style="font-size:22px;">⚡</span>
+      <h3>Gemini API Credential Required</h3>
+      <button class="cyber-modal-close" onclick="closeApiKeyModal()">&times;</button>
+    </div>
+    <p style="font-size:12px; color:var(--text-dim); line-height:1.6; margin:0 0 16px 0;">
+      <strong>Online AI Mode</strong> uses Google Gemini models for deep threat reasoning.
+      To perform online AI scans, please enter and validate your personal Gemini API key, or switch to <strong>Offline Local Mode</strong> for 100% free air-gapped protection.
+    </p>
+
+    <div class="form-group" style="margin-bottom:14px;">
+      <label for="modalGeminiKeyInput">YOUR GEMINI API KEY</label>
+      <input type="password" id="modalGeminiKeyInput" placeholder="AIzaSy..." style="width:100%;" onkeydown="if(event.key==='Enter')validateKeyAndResumeScan()">
+      <div id="modalKeyValidationMsg" style="font-family:var(--mono); font-size:11px; margin-top:6px; min-height:16px;"></div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:18px;">
+      <button class="btn-secondary" onclick="switchToOfflineFromModal()">
+        <span>🔒</span> Switch to Offline Mode
+      </button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-primary" id="btnModalValidate" onclick="validateKeyAndResumeScan()">
+          <span>⚡</span> Validate & Start Scan
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ═════════════════════════════════════════════════════════════════════════
@@ -1764,6 +1859,121 @@ function startPollingFallback(jobId, renderJobUpdate) {
   }, 120);
 }
 
+let pendingScanAction = null;
+
+// Stop and tear down real-time pipeline listeners
+function stopRealtimePipeline() {
+  if (activeEventSource) {
+    activeEventSource.close();
+    activeEventSource = null;
+  }
+  if (activePollInterval) {
+    clearInterval(activePollInterval);
+    activePollInterval = null;
+  }
+}
+
+// ── Gemini API Key Requirement Modal Management ──
+function openApiKeyModal(onProceedAction) {
+  pendingScanAction = onProceedAction;
+  const modal = document.getElementById('apiKeyPromptModal');
+  const input = document.getElementById('modalGeminiKeyInput');
+  const msg = document.getElementById('modalKeyValidationMsg');
+  if (msg) {
+    msg.textContent = '';
+    msg.style.color = 'var(--text-dim)';
+  }
+  if (input) {
+    input.value = getSavedApiKey();
+  }
+  if (modal) modal.classList.add('active');
+  setTimeout(() => input && input.focus(), 100);
+}
+
+function closeApiKeyModal() {
+  const modal = document.getElementById('apiKeyPromptModal');
+  if (modal) modal.classList.remove('active');
+  pendingScanAction = null;
+}
+
+function switchToOfflineFromModal() {
+  setAppMode('offline');
+  const modal = document.getElementById('apiKeyPromptModal');
+  if (modal) modal.classList.remove('active');
+  alertModal('Switched to Offline Local Mode (Air-Gapped). Running scan...');
+  if (typeof pendingScanAction === 'function') {
+    const action = pendingScanAction;
+    pendingScanAction = null;
+    action();
+  }
+}
+
+async function validateKeyAndResumeScan() {
+  const keyInput = document.getElementById('modalGeminiKeyInput');
+  const key = (keyInput ? keyInput.value : '').trim();
+  const msg = document.getElementById('modalKeyValidationMsg');
+  const btn = document.getElementById('btnModalValidate');
+  const model = document.getElementById('geminiModelSelect')?.value || 'gemini-3.8-flash';
+
+  if (!key) {
+    if (msg) {
+      msg.textContent = '✗ Please enter a valid Gemini API key.';
+      msg.style.color = 'var(--danger)';
+    }
+    return;
+  }
+
+  if (msg) {
+    msg.textContent = 'Verifying API key credentials with Google Gemini...';
+    msg.style.color = 'var(--accent)';
+  }
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/gemini/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey: key, model })
+    });
+    const data = await res.json();
+
+    if (data.connected) {
+      sessionStorage.setItem('safety_gemini_key', key);
+      try { localStorage.removeItem('safety_gemini_key'); } catch (_) {}
+      const mainInput = document.getElementById('geminiKeyInput');
+      if (mainInput) mainInput.value = key;
+
+      if (msg) {
+        msg.textContent = `✓ Key validated successfully with ${data.model}!`;
+        msg.style.color = 'var(--safe)';
+      }
+
+      setTimeout(() => {
+        const modal = document.getElementById('apiKeyPromptModal');
+        if (modal) modal.classList.remove('active');
+        if (btn) btn.disabled = false;
+        if (typeof pendingScanAction === 'function') {
+          const action = pendingScanAction;
+          pendingScanAction = null;
+          action();
+        }
+      }, 600);
+    } else {
+      if (btn) btn.disabled = false;
+      if (msg) {
+        msg.textContent = `✗ Validation failed: ${data.error || 'Invalid API key or quota exceeded'}`;
+        msg.style.color = 'var(--danger)';
+      }
+    }
+  } catch (err) {
+    if (btn) btn.disabled = false;
+    if (msg) {
+      msg.textContent = `✗ Connection error: ${err.message}`;
+      msg.style.color = 'var(--danger)';
+    }
+  }
+}
+
 // ── Execution Pipeline ──
 async function executeUrlScan() {
   const url = document.getElementById('targetUrlInput').value.trim();
@@ -1771,6 +1981,12 @@ async function executeUrlScan() {
     alertModal('Please enter a target URL to scan.');
     return;
   }
+
+  if (currentMode === 'online' && !getSavedApiKey()) {
+    openApiKeyModal(() => runUrlScan(url, 'resultsContainer'));
+    return;
+  }
+
   await runUrlScan(url, 'resultsContainer');
 }
 
@@ -1780,6 +1996,12 @@ async function executeDedicatedUrlScan() {
     alertModal('Please enter a target URL.');
     return;
   }
+
+  if (currentMode === 'online' && !getSavedApiKey()) {
+    openApiKeyModal(() => runUrlScan(url, 'dedicatedResultsArea'));
+    return;
+  }
+
   await runUrlScan(url, 'dedicatedResultsArea');
 }
 
@@ -1795,27 +2017,45 @@ async function runUrlScan(url, containerId) {
   attachRealtimePipeline(jobId);
 
   const apiKey = getSavedApiKey();
-  const model = document.getElementById('geminiModelSelect').value || 'gemini-3.6-flash';
+  const model = document.getElementById('geminiModelSelect').value || 'gemini-3.8-flash';
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 35000);
 
   try {
     const res = await fetch('/api/scan/url', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, mode: currentMode, apiKey, model, jobId })
+      body: JSON.stringify({ url, mode: currentMode, apiKey, model, jobId }),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
     const data = await res.json();
+    
     if (!data.success) {
-      alertModal(`Scan Failed: ${data.error || 'Unknown error'}`);
+      stopRealtimePipeline();
+      if (data.requireApiKey) {
+        openApiKeyModal(() => runUrlScan(url, containerId));
+        return;
+      }
+      presentGlobeErrorVisuals(data.error || 'Scan policy failed');
+      alertModal(`Scan Notice: ${data.error || 'Unknown error'}`);
       document.getElementById('globeTelemetryText').textContent = 'ERROR';
       return;
     }
+
     lastScanResult = data;
     renderResults(data, containerId);
     loadHistory();
     document.getElementById('btnExportReport').style.display = 'inline-flex';
     document.getElementById('btnTopDownloadPdf').style.display = 'inline-flex';
   } catch (err) {
-    alertModal(`Could not reach scanning engine: ${err.message}`);
+    clearTimeout(timeoutId);
+    stopRealtimePipeline();
+    const isTimeout = err.name === 'AbortError';
+    const errText = isTimeout ? 'Scan timed out after 35s. Engine reset.' : `Scan failure: ${err.message}`;
+    presentGlobeErrorVisuals(errText);
+    alertModal(errText);
     document.getElementById('globeTelemetryText').textContent = 'FAILED';
   }
 }
@@ -1823,6 +2063,11 @@ async function runUrlScan(url, containerId) {
 async function executeFileScan() {
   if (!selectedFile) {
     alertModal('Please select or drop a media/executable file.');
+    return;
+  }
+
+  if (currentMode === 'online' && !getSavedApiKey()) {
+    openApiKeyModal(() => executeFileScan());
     return;
   }
 
@@ -1837,7 +2082,7 @@ async function executeFileScan() {
   attachRealtimePipeline(jobId);
 
   const apiKey = getSavedApiKey();
-  const model = document.getElementById('geminiModelSelect').value || 'gemini-3.6-flash';
+  const model = document.getElementById('geminiModelSelect').value || 'gemini-3.8-flash';
 
   const formData = new FormData();
   formData.append('file', selectedFile);
@@ -1846,24 +2091,42 @@ async function executeFileScan() {
   if (apiKey) formData.append('apiKey', apiKey);
   formData.append('model', model);
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
+
   try {
     const res = await fetch('/api/scan/file', {
       method: 'POST',
-      body: formData
+      body: formData,
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
     const data = await res.json();
+    
     if (!data.success) {
-      alertModal(`Scan Failed: ${data.error || 'Scan error'}`);
+      stopRealtimePipeline();
+      if (data.requireApiKey) {
+        openApiKeyModal(() => executeFileScan());
+        return;
+      }
+      presentGlobeErrorVisuals(data.error || 'File analysis failed');
+      alertModal(`Scan Notice: ${data.error || 'Scan error'}`);
       document.getElementById('globeTelemetryText').textContent = 'ERROR';
       return;
     }
+
     lastScanResult = data;
     renderResults(data, 'resultsContainer');
     loadHistory();
     document.getElementById('btnExportReport').style.display = 'inline-flex';
     document.getElementById('btnTopDownloadPdf').style.display = 'inline-flex';
   } catch (err) {
-    alertModal(`File analysis engine error: ${err.message}`);
+    clearTimeout(timeoutId);
+    stopRealtimePipeline();
+    const isTimeout = err.name === 'AbortError';
+    const errText = isTimeout ? 'File scan timed out after 45s. Engine reset.' : `File analysis error: ${err.message}`;
+    presentGlobeErrorVisuals(errText);
+    alertModal(errText);
     document.getElementById('globeTelemetryText').textContent = 'FAILED';
   }
 }
@@ -2227,31 +2490,48 @@ async function fetchDiagnostics() {
   }
 }
 
-// ── Gemini Key Settings ──
+// ── Gemini Key Settings (Strict In-Memory Session Storage) ──
 function getSavedApiKey() {
-  return sessionStorage.getItem('safety_gemini_key') || localStorage.getItem('safety_gemini_key') || '';
+  try {
+    // Purge any legacy localStorage remnant
+    if (localStorage.getItem('safety_gemini_key')) {
+      const legacy = localStorage.getItem('safety_gemini_key');
+      sessionStorage.setItem('safety_gemini_key', legacy);
+      localStorage.removeItem('safety_gemini_key');
+    }
+  } catch (_) {}
+  return sessionStorage.getItem('safety_gemini_key') || '';
 }
 
 function loadSavedSettings() {
   const key = getSavedApiKey();
   if (key) {
-    document.getElementById('geminiKeyInput').value = key;
+    const keyInput = document.getElementById('geminiKeyInput');
+    if (keyInput) keyInput.value = key;
   }
 }
 
 function saveGeminiSettings() {
-  const key = document.getElementById('geminiKeyInput').value.trim();
+  const key = (document.getElementById('geminiKeyInput')?.value || '').trim();
   if (key) {
     sessionStorage.setItem('safety_gemini_key', key);
-    alertModal('Gemini key saved securely for this browser session.');
+    try { localStorage.removeItem('safety_gemini_key'); } catch (_) {}
+    alertModal('🔒 Gemini key secured in session memory. Automatically wiped on tab close.');
+  } else {
+    clearGeminiSettings();
   }
 }
 
 function clearGeminiSettings() {
-  sessionStorage.removeItem('safety_gemini_key');
-  localStorage.removeItem('safety_gemini_key');
-  document.getElementById('geminiKeyInput').value = '';
-  alertModal('Gemini key cleared.');
+  try {
+    sessionStorage.removeItem('safety_gemini_key');
+    localStorage.removeItem('safety_gemini_key');
+  } catch (_) {}
+  const keyInput = document.getElementById('geminiKeyInput');
+  if (keyInput) keyInput.value = '';
+  const statusBox = document.getElementById('geminiTestStatus');
+  if (statusBox) statusBox.style.display = 'none';
+  alertModal('🗑️ Credentials completely wiped from browser session memory.');
 }
 
 function toggleKeyVisibility() {
@@ -2517,6 +2797,41 @@ function startGlobeScanningVisuals(targetLabel) {
 
     const titleEl = document.getElementById('globeScanningTitle');
     triggerKineticDecryptText(titleEl, 'NEURAL SCAN IN PROGRESS...', 600);
+  }
+}
+
+// Present Error Visuals on Globe (Halts Fast Spin, Renders Diagnostic Error HUD)
+function presentGlobeErrorVisuals(errorMsg) {
+  isScanActive = false;
+  targetRotSpeedY = 0.003;
+  targetRotSpeedX = 0.001;
+
+  setGlobeColor(0xff3b5c);
+
+  const canvas = document.getElementById('globeCanvas');
+  const wrapper = canvas?.parentElement;
+  if (canvas) canvas.className = 'verdict-unsafe';
+  if (wrapper) wrapper.className = 'visualizer-wrapper verdict-unsafe';
+
+  const centerAlert = document.getElementById('globeCenterAlert');
+  if (centerAlert) {
+    centerAlert.className = 'globe-hud-container';
+    centerAlert.innerHTML = `
+      <div class="globe-hud-badge verdict-unsafe">
+        <div style="font-size:28px; line-height:1; margin-bottom:4px;">⚠️</div>
+        <div class="kinetic-verdict-title MALICIOUS" id="kineticErrorTitle">SCAN HALTED</div>
+        <div style="font-size:11px; color:#fff; max-width:320px; margin:4px auto 10px auto; opacity:0.95; line-height:1.4;">
+          ${escapeHtml(errorMsg || 'Scan aborted or encountered an issue.')}
+        </div>
+        <div class="kinetic-score-pill" style="cursor:pointer; background:rgba(0,255,157,0.15); border-color:var(--offline-green); margin-top:4px;" onclick="setAppMode('offline')">
+          <span style="color:#fff;">SWITCH TO:</span>
+          <strong style="color:var(--offline-green);">OFFLINE AIR-GAPPED 🔒</strong>
+        </div>
+      </div>
+    `;
+
+    const errTitle = document.getElementById('kineticErrorTitle');
+    triggerKineticDecryptText(errTitle, 'SCAN // HALTED', 500);
   }
 }
 

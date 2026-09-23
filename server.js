@@ -5,6 +5,8 @@ const crypto = require('crypto');
 
 // Security & Scanning Modules
 const { validateUrlForSafeFetch } = require('./backend/security/ssrfGuard');
+const { scanRateLimiter, authRateLimiter } = require('./backend/security/rateLimiter');
+const { sanitizeString, sanitizeObject } = require('./backend/security/sanitizer');
 const { analyzeUrlOffline } = require('./backend/scanners/urlScanner');
 const { analyzeMediaFileOffline } = require('./backend/scanners/mediaScanner');
 const { analyzeStegoSignals } = require('./backend/scanners/stegoScanner');
@@ -24,39 +26,62 @@ const { scanJobManager } = require('./backend/scanners/scanJobManager');
 
 const app = express();
 
-// Secure file upload config: in-memory, strict 20MB limit
+// Secure file upload config: in-memory, strict 20MB limit, single-file bound
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 }
+  limits: {
+    fileSize: 20 * 1024 * 1024,
+    files: 1,
+    fields: 10,
+    parts: 15
+  }
 });
 
-app.use(express.json({ limit: '4mb' }));
-app.use(express.urlencoded({ extended: true, limit: '4mb' }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
-// Security Headers
+// ── Security & Isolation Headers (Compatible with AI Studio iFrame Container) ─
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://generativelanguage.googleapis.com; object-src 'none'; base-uri 'self';"
+  );
+  next();
+});
+
+// Anti-caching for all API routes so credentials or scan data are never stored in intermediary caches
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   next();
 });
 
 // Serve frontend assets
 app.use(express.static(path.join(__dirname, 'public')));
 
-// In-Memory Scan History (Max 100 entries, no sensitive keys stored)
+// In-Memory Scan History (Max 100 entries, strictly sanitized - no API keys or credentials stored)
 const scanHistory = [];
 const fullScanResults = new Map();
 
 function recordHistory(entry, fullResult) {
-  scanHistory.unshift({
+  const cleanEntry = sanitizeObject({
     id: entry.id || crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     ...entry
   });
+
+  scanHistory.unshift(cleanEntry);
+
   if (fullResult) {
-    fullScanResults.set(entry.id || fullResult.scanId, fullResult);
+    const cleanFullResult = sanitizeObject(fullResult);
+    fullScanResults.set(cleanEntry.id, cleanFullResult);
   }
+
   if (scanHistory.length > 100) {
     const popped = scanHistory.pop();
     if (popped && popped.id) fullScanResults.delete(popped.id);
@@ -148,19 +173,34 @@ app.get('/api/report/pdf/:scanId', async (req, res) => {
 });
 
 // ── Dual-Mode URL Scan Endpoint with Real-Time Pipeline Hooks ─────────────────
-app.post('/api/scan/url', async (req, res) => {
-  const { url, mode = 'offline', apiKey, model = DEFAULT_MODEL, jobId } = req.body;
+app.post('/api/scan/url', scanRateLimiter.middleware(60, 'Scan rate limit exceeded (60 requests/min). Please slow down.'), async (req, res) => {
+  let { url, mode = 'offline', apiKey, model = DEFAULT_MODEL, jobId } = req.body;
   
-  if (!url) {
-    return res.status(400).json({ success: false, error: 'URL is required' });
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    return res.status(400).json({ success: false, error: 'Target URL is required' });
+  }
+
+  url = url.trim();
+  if (!/^https?:\/\//i.test(url)) {
+    url = 'https://' + url;
+  }
+
+  const scanMode = mode === 'online' ? 'online' : 'offline';
+  const effectiveApiKey = (apiKey || process.env.GEMINI_API_KEY || '').trim();
+
+  // Enforce personal Gemini credential requirement for Online AI Mode
+  if (scanMode === 'online' && !effectiveApiKey) {
+    return res.status(400).json({
+      success: false,
+      requireApiKey: true,
+      error: 'Personal Gemini API Key required for Online AI Mode. Please enter and validate your API key in Gemini AI Config or provide it in the scan modal.'
+    });
   }
 
   const activeJobId = jobId || crypto.randomUUID();
-  scanJobManager.createJob(activeJobId, { target: url, type: 'url', mode });
+  scanJobManager.createJob(activeJobId, { target: url, type: 'url', mode: scanMode });
 
   try {
-    const scanMode = mode === 'online' ? 'online' : 'offline';
-
     // Stage 1: Hash & Signatures / SSRF Check
     scanJobManager.updateStage(activeJobId, 'HASH_SIGNATURES', 'Validating protocol syntax and checking SSRF safety guards...');
     if (scanMode === 'online') {
@@ -203,7 +243,7 @@ app.post('/api/scan/url', async (req, res) => {
       geminiResult = await analyzeUrlWithGemini({
         url,
         heuristics: staticResult,
-        customApiKey: apiKey,
+        customApiKey: effectiveApiKey,
         model
       });
       scanJobManager.updateStage(activeJobId, 'AI_REASONING', geminiResult.available ? 'Gemini structured analysis completed' : 'Fallback to local rule evidence', true);
@@ -267,7 +307,7 @@ app.post('/api/scan/url', async (req, res) => {
 });
 
 // ── Dual-Mode File / Media Scan Endpoint with Real-Time Pipeline Hooks ────────
-app.post('/api/scan/file', upload.single('file'), async (req, res) => {
+app.post('/api/scan/file', scanRateLimiter.middleware(40, 'File scan rate limit exceeded (40 uploads/min). Please slow down.'), upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, error: 'No file uploaded' });
   }
@@ -275,6 +315,17 @@ app.post('/api/scan/file', upload.single('file'), async (req, res) => {
   const { buffer, originalname, size, mimetype } = req.file;
   const mode = req.body.mode === 'online' ? 'online' : 'offline';
   const apiKey = req.body.apiKey;
+  const effectiveApiKey = (apiKey || process.env.GEMINI_API_KEY || '').trim();
+
+  // Enforce personal Gemini credential requirement for Online AI Mode
+  if (mode === 'online' && !effectiveApiKey) {
+    return res.status(400).json({
+      success: false,
+      requireApiKey: true,
+      error: 'Personal Gemini API Key required for Online AI Mode. Please enter and validate your API key in Gemini AI Config or provide it in the scan modal.'
+    });
+  }
+
   const model = req.body.model || DEFAULT_MODEL;
   const activeJobId = req.body.jobId || crypto.randomUUID();
 
@@ -316,7 +367,7 @@ app.post('/api/scan/file', upload.single('file'), async (req, res) => {
         staticFindings: staticResult.findings,
         structureTree: staticResult.structureTree,
         polyglotFindings: staticResult.polyglotFindings,
-        customApiKey: apiKey,
+        customApiKey: effectiveApiKey,
         model
       });
       scanJobManager.updateStage(activeJobId, 'AI_REASONING', geminiResult.available ? 'Gemini structural evaluation completed' : 'Fallback to local rule evidence', true);
@@ -389,10 +440,10 @@ app.post('/api/scan/file', upload.single('file'), async (req, res) => {
 });
 
 // ── Gemini Connection Test ───────────────────────────────────────────────────
-app.post('/api/gemini/test', async (req, res) => {
+app.post('/api/gemini/test', authRateLimiter.middleware(15, 'Gemini connection test rate limit exceeded. Please wait a moment.'), async (req, res) => {
   const { apiKey, model } = req.body;
   const result = await testGeminiConnection(apiKey, model);
-  res.json(result);
+  res.json(sanitizeObject(result));
 });
 
 // ── System Diagnostics ───────────────────────────────────────────────────────
