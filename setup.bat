@@ -1,11 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
 
-title Safety Downloader - Setup and Installation Wizard
+title SCAN ONE - Setup and Installation Wizard
 color 0B
 
 echo ===============================================================================
-echo                SAFETY DOWNLOADER PLATFORM - SYSTEM SETUP
+echo                   SCAN ONE PLATFORM - SYSTEM SETUP
 echo ===============================================================================
 echo [INFO] Initializing system environment check...
 echo.

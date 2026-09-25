@@ -144,7 +144,7 @@ app.post('/api/report/pdf', async (req, res) => {
     const safeTarget = (scanResult.target || 'target').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
     
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="Safety_Report_${safeTarget}_${Date.now()}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="Scan_One_Report_${safeTarget}_${Date.now()}.pdf"`);
     res.setHeader('Content-Length', pdfBuffer.length);
     res.send(pdfBuffer);
   } catch (err) {
@@ -164,7 +164,7 @@ app.get('/api/report/pdf/:scanId', async (req, res) => {
     const safeTarget = (scanResult.target || 'target').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
     
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="Safety_Report_${safeTarget}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="Scan_One_Report_${safeTarget}.pdf"`);
     res.setHeader('Content-Length', pdfBuffer.length);
     res.send(pdfBuffer);
   } catch (err) {
@@ -449,7 +449,7 @@ app.post('/api/gemini/test', authRateLimiter.middleware(15, 'Gemini connection t
 // ── System Diagnostics ───────────────────────────────────────────────────────
 app.get('/api/system/diagnostics', (req, res) => {
   res.json({
-    system: 'Safety Downloader AI Platform',
+    system: 'SCAN ONE AI Platform',
     version: '2.4.0',
     modeSupported: ['ONLINE_AI', 'OFFLINE_LOCAL'],
     features: {
@@ -532,7 +532,7 @@ app.post('/api/scan-file', upload.single('file'), (req, res) => {
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    platform: 'Safety Downloader AI Platform',
+    platform: 'SCAN ONE AI Platform',
     onlineScanEnabled: true,
     offlineScanEnabled: true,
     pdfExportReady: true,
@@ -549,7 +549,7 @@ const PORT = process.env.PORT || 3000;
 
 if (require.main === module) {
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Safety Downloader] Security Platform running on http://0.0.0.0:${PORT}`);
+    console.log(`[SCAN ONE] Security Platform running on http://0.0.0.0:${PORT}`);
   });
 }
 

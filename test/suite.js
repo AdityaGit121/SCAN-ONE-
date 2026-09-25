@@ -13,7 +13,7 @@ const { fuseEvidence } = require('../backend/evidence/fusionEngine');
 
 async function runTests() {
   console.log('================================================================');
-  console.log('        SAFETY DOWNLOADER DEEP VERIFICATION TEST SUITE          ');
+  console.log('            SCAN ONE DEEP VERIFICATION TEST SUITE               ');
   console.log('================================================================\n');
 
   let passed = 0;
@@ -133,7 +133,7 @@ async function runTests() {
   });
 
   runCase('Zero false positive on valid JSON files (package.json should NOT be marked as executable binary)', () => {
-    const jsonBuf = Buffer.from(JSON.stringify({ name: 'safety-downloader', version: '2.0.0' }));
+    const jsonBuf = Buffer.from(JSON.stringify({ name: 'scan-one', version: '2.0.0' }));
     const scan = analyzeMediaFileOffline(jsonBuf, 'package.json');
     assert.strictEqual(scan.detectedType, 'JSON Document');
     assert.notStrictEqual(scan.verdict, 'MALICIOUS');

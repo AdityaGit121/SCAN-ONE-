@@ -1,6 +1,6 @@
-# Safety Downloader — AI Security Platform
+# SCAN ONE — AI Security Platform
 
-**Safety Downloader** is a dual-mode cybersecurity threat-analysis platform engineered to detect sophisticated phishing campaigns, polyglot binary attacks, steganographic media payloads, and malicious file anomalies. It operates across two dedicated environments: **Online AI Mode** (powered by Google Gemini `@google/genai` SDK and live threat graphing) and **Offline Local Mode** (100% air-gapped, zero-cloud deterministic analysis).
+**SCAN ONE** is a dual-mode cybersecurity threat-analysis platform engineered to detect sophisticated phishing campaigns, polyglot binary attacks, steganographic media payloads, and malicious file anomalies. It operates across two dedicated environments: **Online AI Mode** (powered by Google Gemini `@google/genai` SDK and live threat graphing) and **Offline Local Mode** (100% air-gapped, zero-cloud deterministic analysis).
 
 ---
 
@@ -129,8 +129,8 @@ This repository includes a pre-configured `vercel.json`:
 
 ```cmd
 :: Open Command Prompt or PowerShell as Administrator
-git clone https://github.com/AdityaGit121/SafetyDownloder.git
-cd SafetyDownloder
+git clone https://github.com/AdityaGit121/scan-one.git
+cd scan-one
 npm install
 copy .env.example .env
 npm start
@@ -141,8 +141,8 @@ npm start
 ## Linux Setup
 
 ```bash
-git clone https://github.com/AdityaGit121/SafetyDownloder.git
-cd SafetyDownloder
+git clone https://github.com/AdityaGit121/scan-one.git
+cd scan-one
 npm install
 cp .env.example .env
 npm start

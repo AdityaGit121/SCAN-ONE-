@@ -1,5 +1,5 @@
 {
-  "name": "safety-downloader",
+  "name": "scan-one",
   "version": "1.0.0",
   "description": "Scan URLs and files for hidden threats",
   "main": "server.js",

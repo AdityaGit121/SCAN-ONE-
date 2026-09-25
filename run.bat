@@ -1,11 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
 
-title Safety Downloader - Active Server Console
+title SCAN ONE - Active Server Console
 color 0A
 
 echo ===============================================================================
-echo                SAFETY DOWNLOADER PLATFORM - RUNTIME LAUNCHER
+echo                   SCAN ONE PLATFORM - RUNTIME LAUNCHER
 echo ===============================================================================
 echo.
 
